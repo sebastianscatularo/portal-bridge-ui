@@ -82,7 +82,7 @@
     "test": "react-app-rewired test",
     "eject": "react-scripts eject",
     "format": "npx prettier --write ./src",
-    "postinstall": "path-package"
+    "postinstall": "patch-package"
   },
   "eslintConfig": {
     "extends": [
