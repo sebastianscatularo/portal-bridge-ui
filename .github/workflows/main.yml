@@ -1,0 +1,50 @@
+name: Portal Bridge
+
+on:
+  push:
+    branches:
+      - feat/portal-bridge-aws-migration
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Node environment
+        uses: actions/setup-node@v3
+        with:
+          # Node 16 Long Term Support (LTS)
+          node-version: v16.19.1
+
+      - name: Cache Node modules
+        id: cache-npm
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
+      - name: Install dependencies 
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: portal-bridge
+          path: build/**
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+       - shell: bash
+         run: curl -X POST "${{ secrets.DEPLOY_HOOK_URL }}" 
