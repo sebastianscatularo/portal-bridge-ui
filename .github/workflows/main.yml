@@ -61,4 +61,4 @@ jobs:
           accountId: b52887a1a24fb2d3d7abc656ded8cc94
           projectName: portal-bridge-github-actions
           directory: /build
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+#          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
