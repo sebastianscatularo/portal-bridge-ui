@@ -10,7 +10,7 @@ jobs:
     if: "!startsWith(github.event.head_commit.message, '[RELEASE]')"
     runs-on: ubuntu-latest
     permissions:
-      repositories: write
+        repository-projects: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
