@@ -15,22 +15,21 @@ jobs:
       issues: write
       repository-projects: write
     steps:
+      - name: Set up Node environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: v16.19.1
+          registry-url: https://npm.pkg.github.com
+
       - uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - run: |
           date > generated.txt
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-          git add .
-          git commit -m "generated"
+          git config user.name xLabs
+          git config user.email devops@xlabs.xyz
+          npm version patch -m "[RELEASE] %s"
           git push
-      #- name: Checkout code
-      #  uses: actions/checkout@v3
-      #- run: git config --global user.name 'xLabs'
-      #- run: git config --global user.email 'devops@xlabs.xyz'
-      #- run: npm version patch -m "[RELEASE] %s"
-      #- run: git push --follow-tags origin $GITHUB_REF
 
   build:
     if: "!startsWith(github.event.head_commit.message, '[RELEASE]')"
