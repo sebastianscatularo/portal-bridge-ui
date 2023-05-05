@@ -6,11 +6,11 @@ on:
       - feat/github-actions-build
 
 jobs:
-  build:
+  if: "!startsWith(github.event.head_commit.message, '[RELEASE]')"
+  version:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      repositories: write
 
     steps:
       - name: Checkout code
@@ -18,7 +18,16 @@ jobs:
       - run: git config --global user.name 'xLabs'
       - run: git config --global user.email 'devops@xlabs.xyz'
       - run: npm version patch -m "[RELEASE] %s"
-      - run: git push
+      - run: git push --follow-tags origin $GITHUB_REF
+
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
       
       - name: Set up Node environment
         uses: actions/setup-node@v3
