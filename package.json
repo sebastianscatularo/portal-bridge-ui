@@ -84,6 +84,9 @@
     "format": "npx prettier --write ./src",
     "postinstall": "patch-package"
   },
+  "files": [
+    "build"
+  ],
   "eslintConfig": {
     "extends": [
       "react-app",
