@@ -20,8 +20,8 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: v16.19.1
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@xlabs-xyz'
+          registry-url: https://npm.pkg.github.com
+
       - name: Cache Node modules
         id: cache-npm
         uses: actions/cache@v3
@@ -45,7 +45,7 @@ jobs:
         run: npm run build
 
       - name: Publish
-        run: npm publish
+        run: pushd build && npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
