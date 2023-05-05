@@ -60,5 +60,5 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.ACCOUNT_ID }}
           projectName: ${{ secrets.PROJECT_NAME }}
-          directory: /build
+          directory: ${{steps.download.outputs.download-path}}
 #          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
