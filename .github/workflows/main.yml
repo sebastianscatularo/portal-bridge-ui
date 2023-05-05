@@ -8,6 +8,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -15,8 +19,8 @@ jobs:
       - name: Set up Node environment
         uses: actions/setup-node@v3
         with:
-          # Node 16 Long Term Support (LTS)
           node-version: v16.19.1
+          registry-url: 'https://npm.pkg.github.com'
 
       - name: Cache Node modules
         id: cache-npm
@@ -36,12 +40,14 @@ jobs:
 
       - name: Build
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          NODE_OPTIONS: --max-old-space-size=5120
           GENERATE_SOURCEMAP: false
         run: npm run build
 
       - name: Publish
-        run: npm run publish
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   deploy:
       runs-on: ubuntu-latest

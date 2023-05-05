@@ -1,5 +1,9 @@
 {
-  "name": "test_ui",
+  "name": "@xlabs-xyz/portal-bridge",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sebastianscatularo/portal-bridge-ui.git"
+  },
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -61,7 +65,6 @@
     "near-api-js": "^0.44.2",
     "notistack": "^1.0.10",
     "numeral": "^2.0.6",
-    "push-dir": "^0.4.1",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-redux": "^7.2.4",
@@ -75,11 +78,11 @@
   },
   "scripts": {
     "start": "react-app-rewired start",
-    "build": "sed -i '/enableWorkerThreads/d' node_modules/terser-webpack-plugin/dist/index.js && react-app-rewired build",
-    "publish": "push-dir --dir=build --branch=package --force",
+    "build": "react-app-rewired build",
     "test": "react-app-rewired test",
     "eject": "react-scripts eject",
-    "format": "npx prettier --write ./src"
+    "format": "npx prettier --write ./src",
+    "postinstall": "path-package"
   },
   "eslintConfig": {
     "extends": [
@@ -121,6 +124,7 @@
     "jest": "^26.6.0",
     "jest-watch-typeahead": "^0.6.4",
     "os-browserify": "^0.3.0",
+    "patch-package": "^7.0.0",
     "path-browserify": "^1.0.1",
     "prettier": "^2.3.2",
     "process": "^0.11.10",
