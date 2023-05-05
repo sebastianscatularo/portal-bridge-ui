@@ -43,12 +43,22 @@ jobs:
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: portal-bridge
+          name: portal-bridge-${{ github.sha }}
           path: build/**
 
   deploy:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
-       - shell: bash
-         run: curl -X POST "${{ secrets.DEPLOY_HOOK_URL }}" 
+      - uses: actions/download-artifact@v3
+        with:
+        name: portal-bridge-${{ github.sha }}
+
+      - name: Publish to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.YOUR_ACCOUNT_ID }}
+          projectName: ${{ secrets.YOUR_PROJECT_NAME }}
+          directory: ${{ secrets.YOUR_ASSET_DIRECTORY }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
