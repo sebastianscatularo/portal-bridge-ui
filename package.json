@@ -4,12 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "rm node_modules/@xlabs-xyz/portal-bridge/package.json"
+    "build": "rm node_modules/@sebastianscatularo/portal-bridge/package.json"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@xlabs-xyz/portal-bridge": "0.1.0"
+    "@sebastianscatularo/portal-bridge-ui": "0.0.1"
   }
 }
