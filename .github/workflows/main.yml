@@ -53,12 +53,12 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: portal-bridge-${{ github.sha }}
-
+          path: build
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.ACCOUNT_ID }}
           projectName: ${{ secrets.PROJECT_NAME }}
-          directory: ${{steps.download.outputs.download-path}}
+          directory: build
 #          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
