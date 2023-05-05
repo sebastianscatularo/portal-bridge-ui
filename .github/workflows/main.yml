@@ -58,7 +58,7 @@ jobs:
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.YOUR_ACCOUNT_ID }}
+          accountId: b52887a1a24fb2d3d7abc656ded8cc94
           projectName: portal-bridge-github-actions
           directory: /build
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
