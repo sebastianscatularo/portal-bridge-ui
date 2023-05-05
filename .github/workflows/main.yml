@@ -35,6 +35,9 @@ jobs:
         run: npm install
 
       - name: Build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          GENERATE_SOURCEMAP: false
         run: npm run build
 
       - name: Archive production artifacts
