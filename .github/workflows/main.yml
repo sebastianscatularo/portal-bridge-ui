@@ -25,7 +25,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
       - run: |
-          date > generated.txt
           git config user.name xLabs
           git config user.email devops@xlabs.xyz
           npm version patch -m "[RELEASE] %s"
