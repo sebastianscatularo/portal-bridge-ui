@@ -3,7 +3,7 @@ name: Portal Bridge
 on:
   push:
     branches:
-      - feat/portal-bridge-aws-migration
+      - feat/github-actions-build
 
 jobs:
   build:
