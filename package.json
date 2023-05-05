@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "rm node_modules/@sebastianscatularo/portal-bridge/package.json"
+    "build": "rm node_modules/@sebastianscatularo/portal-bridge-ui/package.json"
   },
   "keywords": [],
   "author": "",
