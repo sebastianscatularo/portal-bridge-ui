@@ -52,7 +52,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v3
         with:
-        name: portal-bridge-${{ github.sha }}
+          name: portal-bridge-${{ github.sha }}
 
       - name: Publish to Cloudflare Pages
         uses: cloudflare/pages-action@v1
