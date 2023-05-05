@@ -10,6 +10,7 @@ jobs:
     if: "!startsWith(github.event.head_commit.message, '[RELEASE]')"
     runs-on: ubuntu-latest
     permissions:
+      contents: write  # To push a branch 
       pull-requests: write
       issues: write
       repository-projects: write
