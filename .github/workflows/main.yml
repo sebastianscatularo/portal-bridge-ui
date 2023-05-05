@@ -59,6 +59,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.YOUR_ACCOUNT_ID }}
-          projectName: ${{ secrets.YOUR_PROJECT_NAME }}
-          directory: ${{ secrets.YOUR_ASSET_DIRECTORY }}
+          projectName: portal-bridge-github-actions
+          directory: /build
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
