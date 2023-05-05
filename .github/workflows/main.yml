@@ -9,15 +9,21 @@ jobs:
   version:
     if: "!startsWith(github.event.head_commit.message, '[RELEASE]')"
     runs-on: ubuntu-latest
-    permissions:
-        repository-projects: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - run: git config --global user.name 'xLabs'
-      - run: git config --global user.email 'devops@xlabs.xyz'
-      - run: npm version patch -m "[RELEASE] %s"
-      - run: git push --follow-tags origin $GITHUB_REF
+      - uses: actions/checkout@v3
+      - run: |
+          date > generated.txt
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git commit -m "generated"
+          git push
+      #- name: Checkout code
+      #  uses: actions/checkout@v3
+      #- run: git config --global user.name 'xLabs'
+      #- run: git config --global user.email 'devops@xlabs.xyz'
+      #- run: npm version patch -m "[RELEASE] %s"
+      #- run: git push --follow-tags origin $GITHUB_REF
 
   build:
     if: "!startsWith(github.event.head_commit.message, '[RELEASE]')"
