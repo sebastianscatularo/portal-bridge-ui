@@ -1,4 +1,7 @@
 {
     "name": "@sebastianscatularo/portal-bridge-ui",
-    "version": "0.0.1"
+    "version": "0.0.1",
+    "scripts": {
+        "git-hash": "npm version $(npm info @sebastianscatularo/portal-bridge-ui version)-$(git rev-parse --short HEAD)"
+    }
 }
