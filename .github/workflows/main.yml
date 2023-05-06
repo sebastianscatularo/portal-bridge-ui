@@ -69,7 +69,7 @@ jobs:
         run: npm run build
 
       - name: Publish
-        run: pushd build && npm run git-hash && npm publish
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
