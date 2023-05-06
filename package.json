@@ -10,6 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@sebastianscatularo/portal-bridge-ui": "0.0.1"
+    "@sebastianscatularo/portal-bridge-ui": "^0.1.0"
   }
 }
