@@ -4,7 +4,7 @@
     "type": "git",
     "url": "https://github.com/sebastianscatularo/portal-bridge-ui.git"
   },
-  "version": "0.1.1",
+  "version": "0.1.2",
   "dependencies": {
     "@certusone/wormhole-sdk": "^0.9.15-beta.4",
     "@injectivelabs/sdk-ts": "^1.10.47",
