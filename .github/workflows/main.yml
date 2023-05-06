@@ -32,6 +32,7 @@ jobs:
 
   build:
     if: "!startsWith(github.event.head_commit.message, '[RELEASE]')"
+    needs: version
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -66,6 +67,7 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=5120
           GENERATE_SOURCEMAP: false
+        run: echo 'REACT_APP_VERSION=$npm_package_version' > .env
         run: npm run build
 
       - name: Publish

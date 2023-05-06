@@ -81,7 +81,8 @@
     "test": "react-app-rewired test",
     "eject": "react-scripts eject",
     "format": "npx prettier --write ./src",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "test-v": "echo ${REACT_APP_VERSION}"
   },
   "files": [
     "build"
