@@ -1,5 +1,5 @@
-name: 🐞 Bug
-description: File a bug/issue
+name: 🐞 Developer Support Request
+description: File a developer support request
 title: "[BUG] <title>"
 labels: [bug, needs triage, medium]
 body:
