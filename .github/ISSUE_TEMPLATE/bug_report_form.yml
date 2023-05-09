@@ -1,6 +1,6 @@
-name: 🐞 Developer Support Request
-description: File a developer support request
-title: "[BUG] <title>"
+name: 🐞 Development Support Request
+description: File a development support request
+title: "[BUG][DSR] <title>"
 labels: [bug, needs triage, medium]
 body:
 - type: checkboxes
@@ -9,6 +9,13 @@ body:
     description: Please search to see if an issue already exists for the bug you encountered.
     options:
     - label: I have searched the existing issues
+      required: true
+- type: checkboxes
+  attributes:
+    label: have you checked our wiki for common solutions?
+    description: Please take a look to our [wiki page](../wiki) to see if we already have a **how to** to help you.
+    options:
+    - label: I have searched the wiki
       required: true
 - type: textarea
   attributes:
