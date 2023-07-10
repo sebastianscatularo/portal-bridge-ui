@@ -6,22 +6,35 @@ import {
   isEVMChain,
 } from "@certusone/wormhole-sdk";
 import { BigNumber } from "ethers";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
-import { selectTransferIsApproving } from "../store/selectors";
+import {
+  selectTransferIsApproving,
+  selectTransferIsTBTC,
+  selectTransferSourceChain,
+} from "../store/selectors";
 import { setIsApproving } from "../store/transferSlice";
-import { getTokenBridgeAddressForChain } from "../utils/consts";
+import {
+  THRESHOLD_GATEWAYS,
+  getTokenBridgeAddressForChain,
+} from "../utils/consts";
 
 export default function useAllowance(
   chainId: ChainId,
   tokenAddress?: string,
   transferAmount?: BigInt,
-  sourceIsNative?: boolean
+  sourceIsNative?: boolean,
+  targetChain?: ChainId,
+  isReady?: boolean
 ) {
   const dispatch = useDispatch();
   const [allowance, setAllowance] = useState<BigInt | null>(null);
   const [isAllowanceFetching, setIsAllowanceFetching] = useState(false);
+  const contract = useRef(getTokenBridgeAddressForChain(chainId));
+
+  const isTBTC = useSelector(selectTransferIsTBTC);
+  const sourceChain = useSelector(selectTransferSourceChain);
   const isApproveProcessing = useSelector(selectTransferIsApproving);
   const { signer } = useEthereumProvider(chainId);
   const sufficientAllowance =
@@ -31,20 +44,23 @@ export default function useAllowance(
 
   useEffect(() => {
     let cancelled = false;
+
+    // THRESHOLD TBTC FLOW
+    if (isTBTC && THRESHOLD_GATEWAYS[sourceChain]) {
+      console.log("allowance contract is now for Threshold");
+      contract.current = THRESHOLD_GATEWAYS[chainId];
+    }
+
     if (isEVMChain(chainId) && tokenAddress && signer && !isApproveProcessing) {
       setIsAllowanceFetching(true);
-      getAllowanceEth(
-        getTokenBridgeAddressForChain(chainId),
-        tokenAddress,
-        signer
-      ).then(
+      getAllowanceEth(contract.current, tokenAddress, signer).then(
         (result) => {
           if (!cancelled) {
             setIsAllowanceFetching(false);
             setAllowance(result.toBigInt());
           }
         },
-        (error) => {
+        (_error) => {
           if (!cancelled) {
             setIsAllowanceFetching(false);
             //setError("Unable to retrieve allowance"); //TODO set an error
@@ -56,7 +72,16 @@ export default function useAllowance(
     return () => {
       cancelled = true;
     };
-  }, [chainId, tokenAddress, signer, isApproveProcessing]);
+  }, [
+    chainId,
+    tokenAddress,
+    signer,
+    isApproveProcessing,
+    targetChain,
+    isReady,
+    isTBTC,
+    sourceChain,
+  ]);
 
   const approveAmount: (amount: BigInt) => Promise<any> = useMemo(() => {
     return !isEVMChain(chainId) || !tokenAddress || !signer
@@ -73,7 +98,7 @@ export default function useAllowance(
           return gasPricePromise.then(
             (gasPrice) =>
               approveEth(
-                getTokenBridgeAddressForChain(chainId),
+                contract.current,
                 tokenAddress,
                 signer,
                 BigNumber.from(amount),

@@ -3,36 +3,37 @@ import {
   CHAIN_ID_ACALA,
   CHAIN_ID_ALGORAND,
   CHAIN_ID_APTOS,
+  CHAIN_ID_ARBITRUM,
   CHAIN_ID_AURORA,
   CHAIN_ID_AVAX,
   CHAIN_ID_BSC,
+  CHAIN_ID_BTC,
   CHAIN_ID_CELO,
   CHAIN_ID_ETH,
   CHAIN_ID_FANTOM,
+  CHAIN_ID_INJECTIVE,
   CHAIN_ID_KARURA,
   CHAIN_ID_KLAYTN,
   CHAIN_ID_MOONBEAM,
   CHAIN_ID_NEAR,
   CHAIN_ID_NEON,
   CHAIN_ID_OASIS,
+  CHAIN_ID_OPTIMISM,
   CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
+  CHAIN_ID_SUI,
   CHAIN_ID_TERRA,
-  CHAIN_ID_XPLA,
   CHAIN_ID_TERRA2,
+  CHAIN_ID_XPLA,
   CONTRACTS,
+  coalesceChainName,
   isEVMChain,
   isTerraChain,
   TerraChainId,
-  coalesceChainName,
-  CHAIN_ID_ARBITRUM,
-  CHAIN_ID_INJECTIVE,
-  CHAIN_ID_OPTIMISM,
   hexToNativeString,
   ensureHexPrefix,
   uint8ArrayToHex,
   hexToNativeAssetString,
-  CHAIN_ID_SUI,
 } from "@certusone/wormhole-sdk";
 import { clusterApiUrl } from "@solana/web3.js";
 import { getAddress } from "ethers/lib/utils";
@@ -78,6 +79,7 @@ export const CLUSTER: Cluster =
     : process.env.REACT_APP_CLUSTER === "testnet"
     ? "testnet"
     : "devnet";
+
 export interface ChainInfo {
   id: ChainId;
   name: string;
@@ -394,6 +396,66 @@ export const CHAINS_BY_ID: ChainsById = CHAINS.reduce((obj, chain) => {
   return obj;
 }, {} as ChainsById);
 
+export const THRESHOLD_GATEWAYS: any = {
+  [CHAIN_ID_POLYGON]:
+    CLUSTER === "mainnet"
+      ? "0x09959798B95d00a3183d20FaC298E4594E599eab"
+      : "0x91fe7128f74dbd4f031ea3d90fc5ea4dcfd81818",
+  [CHAIN_ID_OPTIMISM]:
+    CLUSTER === "mainnet"
+      ? "0x1293a54e160D1cd7075487898d65266081A15458"
+      : "0x6449F4381f3d63bDfb36B3bDc375724aD3cD4621",
+  [CHAIN_ID_ARBITRUM]:
+    CLUSTER === "mainnet"
+      ? "0x1293a54e160D1cd7075487898d65266081A15458"
+      : "0x31A15e213B59E230b45e8c5c99dAFAc3d1236Ee2",
+};
+
+export const THRESHOLD_TBTC_CONTRACTS: any = {
+  [CHAIN_ID_ETH]:
+    CLUSTER === "mainnet"
+      ? "0x18084fbA666a33d37592fA2633fD49a74DD93a88"
+      : "0x679874fBE6D4E7Cc54A59e315FF1eB266686a937",
+  [CHAIN_ID_POLYGON]:
+    CLUSTER === "mainnet"
+      ? "0x236aa50979D5f3De3Bd1Eeb40E81137F22ab794b"
+      : "0xBcD7917282E529BAA6f232DdDc75F3901245A492",
+  [CHAIN_ID_OPTIMISM]:
+    CLUSTER === "mainnet"
+      ? "0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40"
+      : "0x1a53759DE2eADf73bd0b05c07a4F1F5B7912dA3d",
+  [CHAIN_ID_ARBITRUM]:
+    CLUSTER === "mainnet"
+      ? "0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40"
+      : "0x85727F4725A4B2834e00Db1AA8e1b843a188162F",
+};
+
+// prettier-ignore
+export const TBTC_ASSET_ADDRESS = THRESHOLD_TBTC_CONTRACTS[CHAIN_ID_ETH].slice(2).padStart(64, "0");
+export const THRESHOLD_ARBITER_FEE = 0;
+export const THRESHOLD_NONCE = 0;
+
+// TRM screening chain names map with wormhole chain ids
+// https://documentation.trmlabs.com/tag/Supported-Blockchain-List
+export const getTrmChainName = (chain: ChainId) => {
+  const trm_chain_names: any = {
+    [CHAIN_ID_ALGORAND]: "algorand",
+    [CHAIN_ID_BTC]: "bitcoin",
+    [CHAIN_ID_SOLANA]: "solana",
+    [CHAIN_ID_AVAX]: "avalanche_c_chain",
+    [CHAIN_ID_BSC]: "binance_smart_chain",
+    [CHAIN_ID_CELO]: "celo",
+    [CHAIN_ID_OPTIMISM]: "optimism",
+    [CHAIN_ID_POLYGON]: "polygon",
+    [CHAIN_ID_ARBITRUM]: "arbitrum",
+  };
+
+  if (trm_chain_names[chain]) return trm_chain_names[chain];
+  if (isEVMChain(chain)) return "ethereum";
+
+  return "";
+};
+
 export const COMING_SOON_CHAINS: ChainInfo[] = [];
 export const getDefaultNativeCurrencySymbol = (chainId: ChainId) =>
   chainId === CHAIN_ID_SOLANA
@@ -592,7 +654,7 @@ export const SOLANA_HOST = process.env.REACT_APP_SOLANA_API_URL
   : "http://localhost:8899";
 
 export const getTerraConfig = (chainId: TerraChainId) => {
-  const isClassic = chainId === CHAIN_ID_TERRA;
+  const isClassic = false;
   return CLUSTER === "mainnet"
     ? {
         URL:
@@ -660,7 +722,7 @@ export const APTOS_NATIVE_TOKEN_KEY = "0x1::aptos_coin::AptosCoin";
 
 export const getInjectiveNetworkName = () => {
   if (CLUSTER === "mainnet") {
-    return Network.MainnetK8s;
+    return Network.Mainnet;
   } else if (CLUSTER === "testnet") {
     return Network.TestnetK8s;
   }
@@ -668,7 +730,7 @@ export const getInjectiveNetworkName = () => {
 };
 export const getInjectiveNetwork = () => {
   if (CLUSTER === "mainnet") {
-    return Network.MainnetK8s;
+    return Network.Mainnet;
   } else if (CLUSTER === "testnet") {
     return Network.TestnetK8s;
   }
@@ -677,7 +739,7 @@ export const getInjectiveNetwork = () => {
 
 export const getInjectiveNetworkInfo = () => {
   if (CLUSTER === "mainnet") {
-    return getNetworkInfo(Network.MainnetK8s);
+    return getNetworkInfo(Network.Mainnet);
   } else if (CLUSTER === "testnet") {
     return getNetworkInfo(Network.TestnetK8s);
   }
@@ -721,6 +783,25 @@ export const ALGORAND_HOST =
           "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         algodServer: "http://localhost",
         algodPort: "4001",
+      };
+export const ALGORAND_INDEXER =
+  CLUSTER === "mainnet"
+    ? {
+        token: "",
+        server: "https://mainnet-idx.algonode.cloud",
+        port: "443",
+      }
+    : CLUSTER === "testnet"
+    ? {
+        token: "",
+        server: "https://testnet-idx.algonode.cloud",
+        port: "443",
+      }
+    : {
+        token:
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        server: "http://localhost",
+        port: "8980",
       };
 export const KARURA_HOST =
   CLUSTER === "mainnet"
@@ -1356,6 +1437,14 @@ export const WGLMR_ADDRESS =
     : "0xDDb64fE46a91D46ee29420539FC25FD07c5FEa3E";
 export const WGLMR_DECIMALS = 18;
 
+export const ARBWETH_ADDRESS =
+  CLUSTER === "mainnet"
+    ? "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
+    : CLUSTER === "testnet"
+    ? "0x0000000000000000000000000000000000000000"
+    : "0xDDb64fE46a91D46ee29420539FC25FD07c5FEa3E";
+export const ARBWETH_DECIMALS = 18;
+
 export const ALGO_DECIMALS = 6;
 
 export const WORMHOLE_V1_ETH_ADDRESS =
@@ -1628,8 +1717,7 @@ export const MULTI_CHAIN_TOKENS: MultiChainInfo =
         [CHAIN_ID_POLYGON]: {},
       } as MultiChainInfo);
 
-export const AVAILABLE_MARKETS_URL =
-  "https://docs.wormhole.com/wormhole/overview-liquid-markets";
+export const AVAILABLE_MARKETS_URL = "docs/faqs/liquid-markets";
 
 export const SOLANA_SYSTEM_PROGRAM_ADDRESS = "11111111111111111111111111111111";
 export const FEATURED_MARKETS_JSON_URL =
@@ -1644,9 +1732,9 @@ export const logoOverrides = new Map<string, string>([
 
 export const getHowToAddTokensToWalletUrl = (chainId: ChainId) => {
   if (isEVMChain(chainId)) {
-    return "https://docs.wormhole.com/wormhole/video-tutorial-how-to-manually-add-tokens-to-your-wallet#metamask";
+    return "docs/video-tutorials/how-to-manually-add-tokens-to-your-wallet#metamask";
   } else if (isTerraChain(chainId)) {
-    return "https://docs.wormhole.com/wormhole/video-tutorial-how-to-manually-add-tokens-to-your-wallet#terra-station";
+    return "docs/video-tutorials/how-to-manually-add-tokens-to-your-wallet#terra-station";
   }
   return "";
 };

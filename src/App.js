@@ -211,7 +211,7 @@ function App() {
             Avalanche with Circle's CCTP.{" "}
           </span>
           <Link
-            href="https://stable.portalbridge.com/usdc-bridge"
+            href="https://portalbridge.com/usdc-bridge"
             target="_blank"
             rel="noopener noreferrer"
             color="inherit"
@@ -247,7 +247,7 @@ function App() {
                 Token Bridge
               </Link>
               <Link
-                href="https://stable.portalbridge.com/usdc-bridge"
+                href="https://portalbridge.com/usdc-bridge"
                 target="_blank"
                 rel="noopener noreferrer"
                 color="inherit"
@@ -265,7 +265,7 @@ function App() {
                 Sui Bridge
               </Link>
               <Link
-                href="https://docs.wormhole.com/wormhole/faqs"
+                href="docs"
                 target="_blank"
                 rel="noopener noreferrer"
                 color="inherit"
@@ -287,7 +287,7 @@ function App() {
           <Hidden implementation="css" smUp>
             <Tooltip title="View the FAQ">
               <IconButton
-                href="https://docs.wormhole.com/wormhole/faqs"
+                href="docs"
                 target="_blank"
                 rel="noopener noreferrer"
                 size="small"

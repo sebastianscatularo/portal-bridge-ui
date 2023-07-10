@@ -5,11 +5,13 @@ import { useCallback } from "react";
 import { useSelector } from "react-redux";
 import { useEthereumProvider } from "../../contexts/EthereumProviderContext";
 import {
+  selectTransferSourceChain,
   selectTransferSourceParsedTokenAccount,
   selectTransferTargetAsset,
   selectTransferTargetChain,
+  selectTransferIsTBTC,
 } from "../../store/selectors";
-import { getEvmChainId } from "../../utils/consts";
+import { THRESHOLD_TBTC_CONTRACTS, getEvmChainId } from "../../utils/consts";
 import {
   ethTokenToParsedTokenAccount,
   getEthereumToken,
@@ -28,7 +30,16 @@ export default function AddToMetamask() {
     selectTransferSourceParsedTokenAccount
   );
   const targetChain = useSelector(selectTransferTargetChain);
+  const sourceChain = useSelector(selectTransferSourceChain);
   const targetAsset = useSelector(selectTransferTargetAsset);
+
+  const isTBTC = useSelector(selectTransferIsTBTC);
+  const isAddingTBTC =
+    isTBTC &&
+    THRESHOLD_TBTC_CONTRACTS[targetChain] &&
+    THRESHOLD_TBTC_CONTRACTS[sourceChain];
+  const tbtcAsset = THRESHOLD_TBTC_CONTRACTS[targetChain];
+
   const { provider, signerAddress, evmChainId, wallet } =
     useEthereumProvider(targetChain);
   const hasCorrectEvmNetwork = evmChainId === getEvmChainId(targetChain);
@@ -47,7 +58,7 @@ export default function AddToMetamask() {
             params: {
               type: "ERC20", // In the future, other standards will be supported
               options: {
-                address: targetAsset, // The address of the token contract
+                address: isAddingTBTC ? tbtcAsset : targetAsset, // The address of the token contract
                 symbol: (
                   symbol ||
                   sourceParsedTokenAccount?.symbol ||
@@ -68,7 +79,9 @@ export default function AddToMetamask() {
     targetAsset,
     signerAddress,
     hasCorrectEvmNetwork,
-    sourceParsedTokenAccount,
+    isAddingTBTC,
+    tbtcAsset,
+    sourceParsedTokenAccount?.symbol,
   ]);
   return provider &&
     signerAddress &&

@@ -21,13 +21,14 @@ import {
   TerraChainId,
   uint8ArrayToHex,
   CHAIN_ID_SUI,
+  CHAIN_ID_POLYGON,
 } from "@certusone/wormhole-sdk";
 import { completeTransferAndRegister } from "@certusone/wormhole-sdk/lib/esm/aptos/api/tokenBridge";
 import { Alert } from "@material-ui/lab";
 import { Connection } from "@solana/web3.js";
 import algosdk from "algosdk";
 import axios from "axios";
-import { Signer } from "ethers";
+import { Contract, Signer } from "ethers";
 import { useSnackbar } from "notistack";
 import { useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -40,6 +41,7 @@ import {
   selectTerraFeeDenom,
   selectTransferIsRedeeming,
   selectTransferTargetChain,
+  selectTransferIsTBTC,
 } from "../store/selectors";
 import { setIsRedeeming, setRedeemTx } from "../store/transferSlice";
 import { signSendAndConfirmAlgorand } from "../utils/algorand";
@@ -59,6 +61,7 @@ import {
   SOL_BRIDGE_ADDRESS,
   SOL_TOKEN_BRIDGE_ADDRESS,
   getBridgeAddressForChain,
+  THRESHOLD_GATEWAYS,
 } from "../utils/consts";
 import {
   makeNearAccount,
@@ -85,6 +88,7 @@ import { SuiWallet } from "@xlabs-libs/wallet-aggregator-sui";
 import { getSuiProvider } from "../utils/sui";
 import { useSuiWallet } from "../contexts/SuiWalletContext";
 import { redeemOnSui } from "../utils/suiRedeemHotfix";
+import { ThresholdL2WormholeGateway } from "../utils/ThresholdL2WormholeGateway";
 
 async function algo(
   dispatch: any,
@@ -159,28 +163,64 @@ async function evm(
   signer: Signer,
   signedVAA: Uint8Array,
   isNative: boolean,
-  chainId: ChainId
+  chainId: ChainId,
+  isTBTC?: boolean
 ) {
   dispatch(setIsRedeeming(true));
+
   try {
-    // Klaytn requires specifying gasPrice
-    const overrides =
-      chainId === CHAIN_ID_KLAYTN
-        ? { gasPrice: (await signer.getGasPrice()).toString() }
-        : {};
-    const receipt = isNative
-      ? await redeemOnEthNative(
-          getTokenBridgeAddressForChain(chainId),
-          signer,
-          signedVAA,
-          overrides
-        )
-      : await redeemOnEth(
-          getTokenBridgeAddressForChain(chainId),
-          signer,
-          signedVAA,
-          overrides
-        );
+    let receipt;
+
+    const isCanonicalTarget = !!THRESHOLD_GATEWAYS[chainId];
+    if (isTBTC && isCanonicalTarget) {
+      console.log("redeem tbtc on canonical");
+      const targetAddress = THRESHOLD_GATEWAYS[chainId];
+      const L2WormholeGateway = new Contract(
+        targetAddress,
+        ThresholdL2WormholeGateway,
+        signer
+      );
+
+      const estimateGas = await L2WormholeGateway.estimateGas.receiveTbtc(
+        signedVAA
+      );
+
+      // We increase the gas limit estimation here by a factor of 10% to account for some faulty public JSON-RPC endpoints.
+      const gasLimit = estimateGas.mul(1100).div(1000);
+      const overrides = {
+        gasLimit,
+        // We use the legacy tx envelope here to avoid triggering gas price autodetection using EIP1559 for polygon.
+        // EIP1559 is not actually implemented in polygon. The node is only API compatible but this breaks some clients
+        // like ethers when choosing fees automatically.
+        ...(chainId === CHAIN_ID_POLYGON && { type: 0 }),
+      };
+
+      const tx = await L2WormholeGateway.receiveTbtc(signedVAA, overrides);
+      receipt = await tx.wait();
+    }
+    // REGULAR PORTAL BRIDGE FLOW
+    else {
+      // Klaytn requires specifying gasPrice
+      const overrides =
+        chainId === CHAIN_ID_KLAYTN
+          ? { gasPrice: (await signer.getGasPrice()).toString() }
+          : {};
+
+      receipt = isNative
+        ? await redeemOnEthNative(
+            getTokenBridgeAddressForChain(chainId),
+            signer,
+            signedVAA,
+            overrides
+          )
+        : await redeemOnEth(
+            getTokenBridgeAddressForChain(chainId),
+            signer,
+            signedVAA,
+            overrides
+          );
+    }
+
     dispatch(
       setRedeemTx({ id: receipt.transactionHash, block: receipt.blockNumber })
     );
@@ -188,6 +228,7 @@ async function evm(
       content: <Alert severity="success">Transaction confirmed</Alert>,
     });
   } catch (e) {
+    console.error(e);
     enqueueSnackbar(null, {
       content: <Alert severity="error">{parseError(e)}</Alert>,
     });
@@ -424,6 +465,8 @@ export function useHandleRedeem() {
   const dispatch = useDispatch();
   const { enqueueSnackbar } = useSnackbar();
   const targetChain = useSelector(selectTransferTargetChain);
+  const isTBTC = useSelector(selectTransferIsTBTC);
+
   const { publicKey: solPK, wallet: solanaWallet } = useSolanaWallet();
   const { signer } = useEthereumProvider(targetChain);
   const { wallet: terraWallet } = useTerraWallet(targetChain);
@@ -438,7 +481,15 @@ export function useHandleRedeem() {
   const isRedeeming = useSelector(selectTransferIsRedeeming);
   const handleRedeemClick = useCallback(() => {
     if (isEVMChain(targetChain) && !!signer && signedVAA) {
-      evm(dispatch, enqueueSnackbar, signer, signedVAA, false, targetChain);
+      evm(
+        dispatch,
+        enqueueSnackbar,
+        signer,
+        signedVAA,
+        false,
+        targetChain,
+        isTBTC
+      );
     } else if (
       targetChain === CHAIN_ID_SOLANA &&
       !!solanaWallet &&
@@ -487,25 +538,26 @@ export function useHandleRedeem() {
       sui(dispatch, enqueueSnackbar, suiWallet, signedVAA);
     }
   }, [
-    dispatch,
-    enqueueSnackbar,
     targetChain,
     signer,
     signedVAA,
     solanaWallet,
     solPK,
     terraWallet,
-    terraFeeDenom,
-    algoAccount,
-    algoWallet,
-    nearAccountId,
-    wallet,
     xplaWallet,
     aptosAddress,
-    aptosWallet,
+    algoAccount,
+    nearAccountId,
+    wallet,
     injWallet,
     injAddress,
     suiWallet,
+    dispatch,
+    enqueueSnackbar,
+    isTBTC,
+    terraFeeDenom,
+    aptosWallet,
+    algoWallet,
   ]);
 
   const handleRedeemNativeClick = useCallback(() => {

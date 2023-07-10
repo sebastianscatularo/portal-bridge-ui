@@ -1,20 +1,19 @@
 import { ChainId } from "@certusone/wormhole-sdk";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Wallet } from "@xlabs-libs/wallet-aggregator-core";
 import {
   useChangeWallet,
   useUnsetWalletFromChain,
   useWallet,
-  useWalletsForChain,
+  useWalletsForChainWithStatus,
 } from "@xlabs-libs/wallet-aggregator-react";
 import ConnectWalletDialog from "./ConnectWalletDialog";
 import ToggleConnectedButton from "./ToggleConnectedButton";
 import { Typography } from "@material-ui/core";
-
-interface ISanction {
-  address: string;
-  isSanctioned: boolean;
-}
+import { CLUSTER } from "../utils/consts";
+import { getIsSanctioned } from "../utils/sanctions";
+import { useSelector } from "react-redux";
+import { RootState } from "../store";
 
 const ConnectWalletButton = ({ chainId }: { chainId: ChainId }) => {
   const wallet = useWallet(chainId);
@@ -22,38 +21,17 @@ const ConnectWalletButton = ({ chainId }: { chainId: ChainId }) => {
   const unsetWalletFromChain = useUnsetWalletFromChain();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [error, setError] = useState<Error | undefined>();
-  const availableWallets = useWalletsForChain(chainId);
-
+  const { wallets: availableWallets, isDetectingWallets } =
+    useWalletsForChainWithStatus(chainId);
+  const sourceChain = useSelector(
+    (state: RootState) => state.transfer.sourceChain
+  );
+  const [walletsNotAvailable, setWalletsNotAvailable] = useState(false);
   const pk = wallet?.getAddress();
 
-  const getIsSanctioned = async (addr?: string) => {
-    const key = process.env.REACT_APP_TRM_API_KEY;
-    if (addr && key) {
-      const resp = await fetch(
-        `https://api.trmlabs.com/public/v1/sanctions/screening`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization:
-              "Basic " + Buffer.from(`${key}:${key}`).toString("base64"),
-          },
-          body: JSON.stringify([
-            {
-              address: addr,
-              // address: "149w62rY42aZBox8fGcmqNsXUzSStKeq8C", // sanctioned address example
-            },
-          ]),
-        }
-      );
-
-      const data = (await resp.json()) as ISanction[];
-      const { isSanctioned } = data[0];
-
-      return isSanctioned;
-    }
-    return false;
-  };
+  useEffect(() => {
+    setWalletsNotAvailable(availableWallets.length === 0);
+  }, [sourceChain, availableWallets]);
 
   const connect = useCallback(
     async (w: Wallet) => {
@@ -61,7 +39,7 @@ const ConnectWalletButton = ({ chainId }: { chainId: ChainId }) => {
         await w.connect();
 
         const wAddress = w.getAddress();
-        const isSanctioned = await getIsSanctioned(wAddress);
+        const isSanctioned = await getIsSanctioned(chainId, CLUSTER, wAddress);
 
         if (isSanctioned) {
           console.error("sanctioned wallet detected", wAddress);
@@ -77,7 +55,7 @@ const ConnectWalletButton = ({ chainId }: { chainId: ChainId }) => {
         setError(err);
       }
     },
-    [changeWallet]
+    [chainId, changeWallet]
   );
 
   const disconnect = useCallback(async () => {
@@ -111,11 +89,30 @@ const ConnectWalletButton = ({ chainId }: { chainId: ChainId }) => {
 
   return (
     <>
+      {isDetectingWallets && (
+        <Typography
+          style={{ textAlign: "center" }}
+          variant="body2"
+          color="textPrimary"
+        >
+          Detecting wallets ...
+        </Typography>
+      )}
+      {!isDetectingWallets && walletsNotAvailable && (
+        <Typography
+          style={{ textAlign: "center" }}
+          variant="body2"
+          color="textPrimary"
+        >
+          Wallets not detected for the selected chain
+        </Typography>
+      )}
       <ToggleConnectedButton
         connect={handleConnect}
         disconnect={disconnect}
         connected={!!pk}
         pk={pk || ""}
+        disabled={isDetectingWallets || walletsNotAvailable}
       />
       <ConnectWalletDialog
         isOpen={isDialogOpen}
