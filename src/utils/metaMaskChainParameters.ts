@@ -53,7 +53,7 @@ export const METAMASK_CHAIN_PARAMETERS: {
   },
   56: {
     chainId: "0x38",
-    chainName: "Binance Smart Chain Mainnet",
+    chainName: "BNB Chain Mainnet",
     nativeCurrency: {
       name: "Binance Chain Native Token",
       symbol: "BNB",
@@ -64,7 +64,7 @@ export const METAMASK_CHAIN_PARAMETERS: {
   },
   97: {
     chainId: "0x61",
-    chainName: "Binance Smart Chain Testnet",
+    chainName: "BNB Chain Testnet",
     nativeCurrency: {
       name: "Binance Chain Native Token",
       symbol: "BNB",
@@ -226,6 +226,20 @@ export const METAMASK_CHAIN_PARAMETERS: {
     nativeCurrency: { name: "Glimmer", symbol: "GLMR", decimals: 18 },
     rpcUrls: ["https://rpc.ankr.com/moonbeam"],
     blockExplorerUrls: ["https://moonscan.io"],
+  },
+  8453: {
+    chainId: "0x2105",
+    chainName: "Base",
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+    rpcUrls: ["https://developer-access-mainnet.base.org"], // https://docs.base.org/network-information/
+    blockExplorerUrls: ["https://goerli.basescan.org"],
+  },
+  84531: {
+    chainId: "0x14A33",
+    chainName: "Base Goerli",
+    nativeCurrency: { name: "Goerli Ether", symbol: "GOR", decimals: 18 },
+    rpcUrls: ["https://goerli.base.org"],
+    blockExplorerUrls: ["https://goerli.basescan.org"],
   },
 };
 

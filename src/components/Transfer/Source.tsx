@@ -34,7 +34,6 @@ import {
   CHAINS,
   CLUSTER,
   ETH_MIGRATION_ASSET_MAP,
-  getIsTransferDisabled,
 } from "../../utils/consts";
 import ButtonWithLoader from "../ButtonWithLoader";
 import ChainSelect from "../ChainSelect";
@@ -49,6 +48,11 @@ import SourceAssetWarning from "./SourceAssetWarning";
 import ChainWarningMessage from "../ChainWarningMessage";
 import useIsTransferLimited from "../../hooks/useIsTransferLimited";
 import TransferLimitedWarning from "./TransferLimitedWarning";
+import { RootState } from "../../store";
+import useTransferControl from "../../hooks/useTransferControl";
+import transferRules from "../../config/transferRules";
+import useRoundTripTransfer from "../../hooks/useRoundTripTransfer";
+import useMinimumAmountGuard from "../../hooks/useMinimumAmountGuard";
 
 const useStyles = makeStyles((theme) => ({
   chainSelectWrapper: {
@@ -84,12 +88,6 @@ function Source() {
     () => CHAINS.filter((c) => c.id !== sourceChain),
     [sourceChain]
   );
-  const isSourceTransferDisabled = useMemo(() => {
-    return getIsTransferDisabled(sourceChain, true);
-  }, [sourceChain]);
-  const isTargetTransferDisabled = useMemo(() => {
-    return getIsTransferDisabled(targetChain, false);
-  }, [targetChain]);
   const parsedTokenAccount = useSelector(
     selectTransferSourceParsedTokenAccount
   );
@@ -113,7 +111,8 @@ function Source() {
   const error = useSelector(selectTransferSourceError);
   const isSourceComplete = useSelector(selectTransferIsSourceComplete);
   const shouldLockFields = useSelector(selectTransferShouldLockFields);
-  const { isReady, statusMessage } = useIsWalletReady(sourceChain);
+  const { isReady, statusMessage, walletAddress } =
+    useIsWalletReady(sourceChain);
   const isTransferLimited = useIsTransferLimited();
   const handleMigrationClick = useCallback(() => {
     if (sourceChain === CHAIN_ID_ETH) {
@@ -151,6 +150,33 @@ function Source() {
     dispatch(incrementStep());
   }, [dispatch]);
 
+  const selectedTokenAddress = useSelector(
+    (state: RootState) => state.transfer.sourceParsedTokenAccount?.mintKey
+  );
+  const { isTransferDisabled, warnings, ids } = useTransferControl(
+    transferRules,
+    sourceChain,
+    targetChain,
+    selectedTokenAddress
+  );
+  /* Only allow sending from ETH <-> BSC Pandle Token */
+  const isPandle = (id: string) => id === "pandle";
+  const isRoundTripTransfer = useRoundTripTransfer(
+    CHAIN_ID_ETH,
+    CHAIN_ID_BSC,
+    sourceChain,
+    (chainId: number) => handleTargetChange({ target: { value: chainId } }),
+    ids,
+    isPandle
+  );
+  /* End pandle token check */
+  const { decimals = 0, isNativeAsset = false } = parsedTokenAccount || {};
+  const { isBelowMinimum, minimum } = useMinimumAmountGuard({
+    amount,
+    sourceChain,
+    decimals,
+    isNativeAsset,
+  });
   return (
     <>
       <StepDescription>
@@ -202,13 +228,13 @@ function Source() {
             fullWidth
             value={targetChain}
             onChange={handleTargetChange}
-            disabled={shouldLockFields}
+            disabled={shouldLockFields || isRoundTripTransfer}
             chains={targetChainOptions}
           />
         </div>
       </div>
       <KeyAndBalance chainId={sourceChain} />
-      {isReady || uiAmountString ? (
+      {(isReady || uiAmountString) && !!walletAddress ? (
         <div className={classes.transferField}>
           <TokenSelector disabled={shouldLockFields} />
         </div>
@@ -232,7 +258,7 @@ function Source() {
             sourceChain={sourceChain}
             sourceAsset={parsedTokenAccount?.mintKey}
           />
-          {hasParsedTokenAccount ? (
+          {hasParsedTokenAccount && !!walletAddress ? (
             <NumberTextField
               variant="outlined"
               label="Amount"
@@ -240,7 +266,13 @@ function Source() {
               className={classes.transferField}
               value={amount}
               onChange={handleAmountChange}
-              disabled={shouldLockFields}
+              disabled={isTransferDisabled || shouldLockFields}
+              error={isBelowMinimum}
+              helperText={
+                isBelowMinimum
+                  ? `Amount sent is too small. The amount must be equal or greater than ${minimum}.`
+                  : ""
+              }
               onMaxClick={
                 uiAmountString && !parsedTokenAccount.isNativeAsset
                   ? handleMaxClick
@@ -248,18 +280,15 @@ function Source() {
               }
             />
           ) : null}
-          <ChainWarningMessage chainId={sourceChain} />
-          <ChainWarningMessage chainId={targetChain} />
+          {warnings.map((message, key) => (
+            <ChainWarningMessage key={key} message={message} />
+          ))}
           <TransferLimitedWarning isTransferLimited={isTransferLimited} />
           <ButtonWithLoader
-            disabled={
-              !isSourceComplete ||
-              isSourceTransferDisabled ||
-              isTargetTransferDisabled
-            }
+            disabled={isTransferDisabled || !isSourceComplete || isBelowMinimum}
             onClick={handleNextClick}
             showLoader={false}
-            error={statusMessage || error}
+            error={isTransferDisabled ? "" : statusMessage || error}
           >
             Next
           </ButtonWithLoader>

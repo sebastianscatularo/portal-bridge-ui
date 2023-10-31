@@ -1,5 +1,6 @@
 import {
   CHAIN_ID_ACALA,
+  CHAIN_ID_ETH,
   CHAIN_ID_KARURA,
   CHAIN_ID_SOLANA,
   isEVMChain,
@@ -7,6 +8,7 @@ import {
 import { ethers } from "ethers";
 import { parseUnits } from "ethers/lib/utils";
 import { RootState } from ".";
+import { TBTC_ASSET_ADDRESS } from "../utils/consts";
 
 /*
  * Attest
@@ -170,6 +172,13 @@ export const selectTransferSourceChain = (state: RootState) =>
 export const selectTransferSourceAsset = (state: RootState) => {
   return state.transfer.sourceParsedTokenAccount?.mintKey || undefined;
 };
+export const selectTransferIsTBTC = (state: RootState) => {
+  return (
+    state.transfer.originChain === CHAIN_ID_ETH &&
+    state.transfer.originAsset?.toLowerCase() ===
+      TBTC_ASSET_ADDRESS?.toLowerCase()
+  );
+};
 export const selectTransferIsSourceAssetWormholeWrapped = (state: RootState) =>
   state.transfer.isSourceAssetWormholeWrapped;
 export const selectTransferOriginChain = (state: RootState) =>
@@ -258,7 +267,10 @@ export const selectTransferSourceError = (
     }
   } catch (e: any) {
     if (e?.message) {
-      return e.message.substring(0, e.message.indexOf("("));
+      return `Invalid amount - ${e.message.substring(
+        0,
+        e.message.indexOf("(")
+      )}`;
     }
     return "Invalid amount";
   }

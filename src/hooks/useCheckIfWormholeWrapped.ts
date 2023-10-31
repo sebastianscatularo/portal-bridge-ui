@@ -5,6 +5,8 @@ import {
   CHAIN_ID_NEAR,
   CHAIN_ID_SOLANA,
   CHAIN_ID_XPLA,
+  CHAIN_ID_SEI,
+  cosmos,
   getOriginalAssetAptos,
   getOriginalAssetAlgorand,
   getOriginalAssetCosmWasm,
@@ -18,6 +20,7 @@ import {
   getOriginalAssetInjective,
   CHAIN_ID_SUI,
   getOriginalAssetSui,
+  CHAIN_ID_ETH,
 } from "@certusone/wormhole-sdk";
 import {
   getOriginalAssetEth as getOriginalAssetEthNFT,
@@ -54,12 +57,17 @@ import {
   SOL_NFT_BRIDGE_ADDRESS,
   SOL_TOKEN_BRIDGE_ADDRESS,
   XPLA_LCD_CLIENT_CONFIG,
+  THRESHOLD_TBTC_CONTRACTS,
+  TBTC_ASSET_ADDRESS,
+  SEI_TRANSLATOR,
 } from "../utils/consts";
 import { getOriginalAssetNear, makeNearAccount } from "../utils/near";
 import { LCDClient as XplaLCDClient } from "@xpla/xpla.js";
 import { getAptosClient } from "../utils/aptos";
 import { getInjectiveWasmClient } from "../utils/injective";
 import { getSuiProvider } from "../utils/sui";
+import { getOriginalAssetSei, getSeiWasmClient } from "../utils/sei";
+import { base58 } from "ethers/lib/utils";
 
 export interface StateSafeWormholeWrappedInfo {
   isWrapped: boolean;
@@ -94,7 +102,7 @@ function useCheckIfWormholeWrapped(nft?: boolean) {
   const setSourceWormholeWrappedInfo = nft
     ? setNFTSourceWormholeWrappedInfo
     : setTransferSourceWormholeWrappedInfo;
-  const { provider } = useEthereumProvider(sourceChain);
+  const { provider } = useEthereumProvider(sourceChain as any);
   const { accountId: nearAccountId } = useNearContext();
   const isRecovery = useSelector(
     nft ? selectNFTIsRecovery : selectTransferIsRecovery
@@ -123,28 +131,61 @@ function useCheckIfWormholeWrapped(nft?: boolean) {
                 sourceChain
               ))
         );
+
+        // check for tBTC on canonical chains, make their origin be eth-wrapped-tbtc
+        if (
+          !cancelled &&
+          sourceChain !== CHAIN_ID_ETH &&
+          THRESHOLD_TBTC_CONTRACTS[sourceChain]?.toLowerCase() ===
+            sourceAsset?.toLowerCase()
+        ) {
+          console.log("selected tBTC on canonical chain");
+          dispatch(
+            setSourceWormholeWrappedInfo({
+              isWrapped: true,
+              chainId: CHAIN_ID_ETH,
+              assetAddress: TBTC_ASSET_ADDRESS,
+            })
+          );
+          return;
+        }
+
         if (!cancelled) {
           dispatch(setSourceWormholeWrappedInfo(wrappedInfo));
         }
       }
       if (sourceChain === CHAIN_ID_SOLANA && sourceAsset) {
         try {
-          const connection = new Connection(SOLANA_HOST, "confirmed");
-          const wrappedInfo = makeStateSafe(
-            await (nft
-              ? getOriginalAssetSolNFT(
-                  connection,
-                  SOL_NFT_BRIDGE_ADDRESS,
-                  sourceAsset
-                )
-              : getOriginalAssetSol(
-                  connection,
-                  SOL_TOKEN_BRIDGE_ADDRESS,
-                  sourceAsset
-                ))
-          );
-          if (!cancelled) {
-            dispatch(setSourceWormholeWrappedInfo(wrappedInfo));
+          // Check if is tBtc canonical on Solana
+          // TODO improve the check and centralice the login on just one place
+          if (THRESHOLD_TBTC_CONTRACTS[sourceChain] === sourceAsset) {
+            console.log("selected tBTC on canonical chain");
+            dispatch(
+              setSourceWormholeWrappedInfo({
+                isWrapped: true,
+                chainId: CHAIN_ID_ETH,
+                assetAddress: TBTC_ASSET_ADDRESS,
+              })
+            );
+            return;
+          } else {
+            const connection = new Connection(SOLANA_HOST, "confirmed");
+            const wrappedInfo = makeStateSafe(
+              await (nft
+                ? getOriginalAssetSolNFT(
+                    connection,
+                    SOL_NFT_BRIDGE_ADDRESS,
+                    sourceAsset
+                  )
+                : getOriginalAssetSol(
+                    connection,
+                    SOL_TOKEN_BRIDGE_ADDRESS,
+                    sourceAsset
+                  ))
+            );
+            if (!cancelled) {
+              dispatch(setSourceWormholeWrappedInfo(wrappedInfo));
+            }
           }
         } catch (e) {}
       }
@@ -164,6 +205,25 @@ function useCheckIfWormholeWrapped(nft?: boolean) {
           const lcd = new XplaLCDClient(XPLA_LCD_CLIENT_CONFIG);
           const wrappedInfo = makeStateSafe(
             await getOriginalAssetCosmWasm(lcd, sourceAsset, sourceChain)
+          );
+          if (!cancelled) {
+            dispatch(setSourceWormholeWrappedInfo(wrappedInfo));
+          }
+        } catch (e) {}
+      }
+      if (sourceChain === CHAIN_ID_SEI && sourceAsset) {
+        try {
+          const client = await getSeiWasmClient();
+          const queryAsset = sourceAsset.startsWith(
+            `factory/${SEI_TRANSLATOR}/`
+          )
+            ? cosmos.humanAddress(
+                "sei",
+                base58.decode(sourceAsset.split("/")[2])
+              )
+            : sourceAsset;
+          const wrappedInfo = makeStateSafe(
+            await getOriginalAssetSei(queryAsset, client)
           );
           if (!cancelled) {
             dispatch(setSourceWormholeWrappedInfo(wrappedInfo));
@@ -211,7 +271,7 @@ function useCheckIfWormholeWrapped(nft?: boolean) {
           );
           const wrappedInfo = makeStateSafe(
             await getOriginalAssetAlgorand(
-              algodClient,
+              algodClient as any,
               ALGORAND_TOKEN_BRIDGE_ID,
               BigInt(sourceAsset)
             )
@@ -244,7 +304,7 @@ function useCheckIfWormholeWrapped(nft?: boolean) {
         try {
           const client = getInjectiveWasmClient();
           const wrappedInfo = makeStateSafe(
-            await getOriginalAssetInjective(sourceAsset, client)
+            await getOriginalAssetInjective(sourceAsset, client as any)
           );
           if (!cancelled) {
             dispatch(setSourceWormholeWrappedInfo(wrappedInfo));

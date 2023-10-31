@@ -18,6 +18,7 @@ import {
   CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
   CHAIN_ID_XPLA,
+  CHAIN_ID_SEI,
   isEVMChain,
   isTerraChain,
   ethers_contracts,
@@ -25,6 +26,8 @@ import {
   WSOL_DECIMALS,
   CHAIN_ID_INJECTIVE,
   CHAIN_ID_SUI,
+  CHAIN_ID_ARBITRUM,
+  CHAIN_ID_BASE,
 } from "@certusone/wormhole-sdk";
 import { Dispatch } from "@reduxjs/toolkit";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -49,8 +52,10 @@ import {
 import { useNearContext } from "../contexts/NearWalletContext";
 import { useSolanaWallet } from "../contexts/SolanaWalletContext";
 import acalaIcon from "../icons/acala.svg";
+import arbitrumIcon from "../icons/arbitrum.svg";
 import auroraIcon from "../icons/aurora.svg";
 import avaxIcon from "../icons/avax.svg";
+import baseIcon from "../icons/base.svg";
 import bnbIcon from "../icons/bnb.svg";
 import celoIcon from "../icons/celo.svg";
 import ethIcon from "../icons/eth.svg";
@@ -128,6 +133,10 @@ import {
   WNEON_DECIMALS,
   WROSE_ADDRESS,
   WROSE_DECIMALS,
+  ARBWETH_ADDRESS,
+  ARBWETH_DECIMALS,
+  BASE_WETH_ADDRESS,
+  BASE_WETH_DECIMALS,
   CLUSTER,
   SUI_NATIVE_TOKEN_KEY,
 } from "../utils/consts";
@@ -282,6 +291,29 @@ const createNativeEthParsedTokenAccount = (
           "ETH", //A white lie for display purposes
           "Ethereum", //A white lie for display purposes
           ethIcon,
+          true //isNativeAsset
+        );
+      });
+};
+
+const createNativeBaseParsedTokenAccount = (
+  provider: Provider,
+  signerAddress: string | undefined
+) => {
+  return !(provider && signerAddress)
+    ? Promise.reject()
+    : provider.getBalance(signerAddress).then((balanceInWei) => {
+        const balanceInEth = ethers.utils.formatEther(balanceInWei);
+        return createParsedTokenAccount(
+          signerAddress, //public key
+          BASE_WETH_ADDRESS, //Mint key, On the other side this will be WETH, so this is hopefully a white lie.
+          balanceInWei.toString(), //amount, in wei
+          BASE_WETH_DECIMALS, //Luckily both ETH and WETH have 18 decimals, so this should not be an issue.
+          parseFloat(balanceInEth), //This loses precision, but is a limitation of the current datamodel. This field is essentially deprecated
+          balanceInEth.toString(), //This is the actual display field, which has full precision.
+          "baseETH", //A white lie for display purposes
+          "Base Ethereum", //A white lie for display purposes
+          baseIcon,
           true //isNativeAsset
         );
       });
@@ -575,6 +607,29 @@ const createNativeMoonbeamParsedTokenAccount = (
           "GLMR", //A white lie for display purposes
           "GLMR", //A white lie for display purposes
           moonbeamIcon,
+          true //isNativeAsset
+        );
+      });
+};
+
+const createNativeArbitrumParsedTokenAccount = (
+  provider: Provider,
+  signerAddress: string | undefined
+) => {
+  return !(provider && signerAddress)
+    ? Promise.reject()
+    : provider.getBalance(signerAddress).then((balanceInWei) => {
+        const balanceInEth = ethers.utils.formatEther(balanceInWei);
+        return createParsedTokenAccount(
+          signerAddress, //public key
+          ARBWETH_ADDRESS, //Mint key, On the other side this will be wneon, so this is hopefully a white lie.
+          balanceInWei.toString(), //amount, in wei
+          ARBWETH_DECIMALS,
+          parseFloat(balanceInEth), //This loses precision, but is a limitation of the current datamodel. This field is essentially deprecated
+          balanceInEth.toString(), //This is the actual display field, which has full precision.
+          "arbETH", //A white lie for display purposes
+          "arbEth", //A white lie for display purposes
+          arbitrumIcon,
           true //isNativeAsset
         );
       });
@@ -1138,7 +1193,7 @@ function useGetAvailableTokens(nft: boolean = false) {
     nft ? selectNFTSourceChain : selectTransferSourceChain
   );
   const { publicKey: solPK, wallet: solanaWallet } = useSolanaWallet();
-  const { provider, signerAddress } = useEthereumProvider(lookupChain);
+  const { provider, signerAddress } = useEthereumProvider(lookupChain as any);
   const { address: algoAccount } = useAlgorandWallet();
   const { accountId: nearAccountId } = useNearContext();
   const { account: aptosAddress } = useAptosContext();
@@ -1328,7 +1383,41 @@ function useGetAvailableTokens(nft: boolean = false) {
     };
   }, [lookupChain, provider, signerAddress, nft, ethNativeAccount]);
 
-  //Binance Smart Chain native asset load
+  //Base native asset load
+  useEffect(() => {
+    let cancelled = false;
+    if (
+      signerAddress &&
+      lookupChain === CHAIN_ID_BASE &&
+      !ethNativeAccount &&
+      !nft
+    ) {
+      setEthNativeAccountLoading(true);
+      createNativeBaseParsedTokenAccount(provider, signerAddress).then(
+        (result) => {
+          console.log("create native account returned with value", result);
+          if (!cancelled) {
+            setEthNativeAccount(result);
+            setEthNativeAccountLoading(false);
+            setEthNativeAccountError("");
+          }
+        },
+        (error) => {
+          if (!cancelled) {
+            setEthNativeAccount(undefined);
+            setEthNativeAccountLoading(false);
+            setEthNativeAccountError("Unable to retrieve your ETH balance.");
+          }
+        }
+      );
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lookupChain, provider, signerAddress, nft, ethNativeAccount]);
+
+  //BNB Chain native asset load
   useEffect(() => {
     let cancelled = false;
     if (
@@ -1730,6 +1819,41 @@ function useGetAvailableTokens(nft: boolean = false) {
     };
   }, [lookupChain, provider, signerAddress, nft, ethNativeAccount]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (
+      signerAddress &&
+      lookupChain === CHAIN_ID_ARBITRUM &&
+      !ethNativeAccount &&
+      !nft
+    ) {
+      setEthNativeAccountLoading(true);
+      createNativeArbitrumParsedTokenAccount(provider, signerAddress).then(
+        (result) => {
+          console.log("create native account returned with value", result);
+          if (!cancelled) {
+            setEthNativeAccount(result);
+            setEthNativeAccountLoading(false);
+            setEthNativeAccountError("");
+          }
+        },
+        (error) => {
+          if (!cancelled) {
+            setEthNativeAccount(undefined);
+            setEthNativeAccountLoading(false);
+            setEthNativeAccountError(
+              "Unable to retrieve your Arbitrum balance."
+            );
+          }
+        }
+      );
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lookupChain, provider, signerAddress, nft, ethNativeAccount]);
+
   //Ethereum covalent or blockscout accounts load
   useEffect(() => {
     //const testWallet = "0xf60c2ea62edbfe808163751dd0d8693dcb30019c";
@@ -1879,13 +2003,24 @@ function useGetAvailableTokens(nft: boolean = false) {
     output.data = output.data?.slice() || [];
     output.isFetching = output.isFetching || ethNativeAccountLoading;
     output.error = output.error || ethNativeAccountError;
+
+    // To avoid have two MATIC in the list (issue: https://github.com/XLabs/portal-bridge-ui/issues/170)
+    if (
+      lookupChain === CHAIN_ID_POLYGON &&
+      ethNativeAccount?.symbol === output.data[0]?.symbol &&
+      ethNativeAccount?.amount === output.data[0]?.amount
+    ) {
+      output.data && output.data.shift();
+    }
     ethNativeAccount && output.data && output.data.unshift(ethNativeAccount);
+
     return output;
   }, [
-    ethNativeAccount,
+    tokenAccounts,
     ethNativeAccountLoading,
     ethNativeAccountError,
-    tokenAccounts,
+    ethNativeAccount,
+    lookupChain,
   ]);
 
   return lookupChain === CHAIN_ID_SOLANA
@@ -1940,6 +2075,10 @@ function useGetAvailableTokens(nft: boolean = false) {
     : lookupChain === CHAIN_ID_SUI
     ? {
         tokenAccounts,
+        resetAccounts: resetSourceAccounts,
+      }
+    : lookupChain === CHAIN_ID_SEI
+    ? {
         resetAccounts: resetSourceAccounts,
       }
     : undefined;

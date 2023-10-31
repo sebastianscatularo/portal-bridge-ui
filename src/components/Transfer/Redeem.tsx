@@ -1,5 +1,6 @@
 import {
   CHAIN_ID_ACALA,
+  CHAIN_ID_ARBITRUM,
   CHAIN_ID_AURORA,
   CHAIN_ID_AVAX,
   CHAIN_ID_BSC,
@@ -12,6 +13,7 @@ import {
   CHAIN_ID_OASIS,
   CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
+  ChainId,
   isEVMChain,
   isTerraChain,
   WSOL_ADDRESS,
@@ -27,7 +29,7 @@ import {
   Typography,
 } from "@material-ui/core";
 import { Alert } from "@material-ui/lab";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import useGetIsTransferCompleted from "../../hooks/useGetIsTransferCompleted";
 import { useHandleRedeem } from "../../hooks/useHandleRedeem";
@@ -40,6 +42,7 @@ import {
 } from "../../store/selectors";
 import { reset } from "../../store/transferSlice";
 import {
+  ARBWETH_ADDRESS,
   CHAINS_BY_ID,
   CLUSTER,
   getHowToAddTokensToWalletUrl,
@@ -64,6 +67,11 @@ import TerraFeeDenomPicker from "../TerraFeeDenomPicker";
 import AddToMetamask from "./AddToMetamask";
 import RedeemPreview from "./RedeemPreview";
 import WaitingForWalletMessage from "./WaitingForWalletMessage";
+import ChainWarningMessage from "../ChainWarningMessage";
+import { useRedeemControl } from "../../hooks/useRedeemControl";
+import transferRules from "../../config/transferRules";
+import { RootState } from "../../store";
+import { CHAIN_ID_SEI } from "@xlabs-libs/wallet-aggregator-core";
 
 const useStyles = makeStyles((theme) => ({
   alert: {
@@ -74,7 +82,58 @@ const useStyles = makeStyles((theme) => ({
     margin: theme.spacing(4, 0, 2),
     textAlign: "center",
   },
+  description: {
+    textAlign: "center",
+    marginBottom: theme.spacing(2),
+  },
 }));
+
+type AutomaticRelayRedeemProps = {
+  isTransferCompleted: boolean;
+  chainId: ChainId;
+  handleManualRedeem: () => void;
+};
+
+function AutomaticRelayRedeem({
+  isTransferCompleted,
+  chainId,
+  handleManualRedeem,
+}: AutomaticRelayRedeemProps) {
+  const { showLoader } = useHandleRedeem();
+  const targetChain = useSelector(selectTransferTargetChain);
+  const { isReady } = useIsWalletReady(targetChain);
+  const classes = useStyles();
+  return (
+    <>
+      {!isTransferCompleted ? (
+        <div className={classes.centered}>
+          <Typography
+            component="div"
+            variant="subtitle1"
+            className={classes.description}
+          >
+            {CHAINS_BY_ID[chainId].name} is running a relayer for this operation
+          </Typography>
+          {!isReady && <KeyAndBalance chainId={targetChain} />}
+
+          <ButtonWithLoader
+            onClick={handleManualRedeem}
+            showLoader={showLoader}
+            disabled={showLoader || !isReady}
+          >
+            Manually redeem instead
+          </ButtonWithLoader>
+        </div>
+      ) : null}
+
+      {isTransferCompleted ? (
+        <RedeemPreview
+          overrideExplainerString={`Success! Your transfer is complete. ${CHAINS_BY_ID[chainId].name} relayed this operation for you.`}
+        />
+      ) : null}
+    </>
+  );
+}
 
 function Redeem() {
   const {
@@ -99,11 +158,6 @@ function Redeem() {
     targetChain === CHAIN_ID_ACALA || targetChain === CHAIN_ID_KARURA;
   const targetAsset = useSelector(selectTransferTargetAsset);
   const isRecovery = useSelector(selectTransferIsRecovery);
-  const { isTransferCompletedLoading, isTransferCompleted } =
-    useGetIsTransferCompleted(
-      useRelayer ? false : true,
-      useRelayer ? 5000 : undefined
-    );
   const classes = useStyles();
   const dispatch = useDispatch();
   const { isReady, statusMessage } = useIsWalletReady(targetChain);
@@ -148,6 +202,10 @@ function Redeem() {
     targetChain === CHAIN_ID_MOONBEAM &&
     targetAsset &&
     targetAsset.toLowerCase() === WGLMR_ADDRESS.toLowerCase();
+  const isArbitrumNative =
+    targetChain === CHAIN_ID_ARBITRUM &&
+    targetAsset &&
+    targetAsset.toLowerCase() === ARBWETH_ADDRESS.toLowerCase();
   const isSolNative =
     targetChain === CHAIN_ID_SOLANA &&
     targetAsset &&
@@ -163,6 +221,7 @@ function Redeem() {
     isKlaytnNative ||
     isNeonNative ||
     isMoonbeamNative ||
+    isArbitrumNative ||
     isSolNative;
   const [useNativeRedeem, setUseNativeRedeem] = useState(true);
   const toggleNativeRedeem = useCallback(() => {
@@ -172,7 +231,35 @@ function Redeem() {
     dispatch(reset());
   }, [dispatch]);
   const howToAddTokensUrl = getHowToAddTokensToWalletUrl(targetChain);
-
+  const originAsset = useSelector(
+    (state: RootState) => state.transfer.originAsset
+  );
+  const originChain = useSelector(
+    (state: RootState) => state.transfer.originChain
+  );
+  const sourceChain = useSelector(
+    (state: RootState) => state.transfer.sourceChain
+  );
+  const { warnings, isRedeemDisabled } = useRedeemControl(
+    transferRules,
+    sourceChain,
+    targetChain,
+    originAsset,
+    originChain
+  );
+  const useAutomaticRelay = useMemo(
+    () => targetAsset && targetChain === CHAIN_ID_SEI,
+    [targetAsset, targetChain]
+  );
+  const isRelayed = useMemo(
+    () => useRelayer || useAutomaticRelay,
+    [useRelayer, useAutomaticRelay]
+  );
+  const { isTransferCompletedLoading, isTransferCompleted } =
+    useGetIsTransferCompleted(
+      isRelayed ? false : true,
+      isRelayed ? 5000 : undefined
+    );
   const relayerContent = (
     <>
       {isEVMChain(targetChain) && !isTransferCompleted && !targetIsAcala ? (
@@ -197,14 +284,13 @@ function Redeem() {
             {"Waiting for a relayer to process your transfer."}
           </Typography>
           <Tooltip title="Your fees will be refunded on the target chain">
-            <Button
+            <ButtonWithLoader
               onClick={handleManuallyRedeemClick}
-              size="small"
-              variant="outlined"
-              style={{ marginTop: 16 }}
+              showLoader={showLoader}
+              disabled={showLoader}
             >
               Manually redeem instead
-            </Button>
+            </ButtonWithLoader>
           </Tooltip>
         </div>
       ) : null}
@@ -222,14 +308,13 @@ function Redeem() {
               &#127881;)
             </span>
           </ButtonWithLoader>
-          <Button
+          <ButtonWithLoader
             onClick={handleManuallyRedeemClick}
-            size="small"
-            variant="outlined"
-            style={{ marginTop: 16 }}
+            showLoader={showLoader}
+            disabled={showLoader}
           >
             Manually redeem instead
-          </Button>
+          </ButtonWithLoader>
         </div>
       ) : null}
 
@@ -263,12 +348,15 @@ function Redeem() {
       {targetChain === CHAIN_ID_SOLANA ? (
         <SolanaCreateAssociatedAddressAlternate />
       ) : null}
-
+      {warnings.map((message, key) => (
+        <ChainWarningMessage message={message} key={key} />
+      ))}
       <>
         {" "}
         <ButtonWithLoader
           //TODO disable when the associated token account is confirmed to not exist
           disabled={
+            isRedeemDisabled ||
             !isReady ||
             disabled ||
             (isRecovery && (isTransferCompletedLoading || isTransferCompleted))
@@ -278,7 +366,10 @@ function Redeem() {
               ? handleNativeClick
               : handleClick
           }
-          showLoader={showLoader || (isRecovery && isTransferCompletedLoading)}
+          showLoader={
+            !isRedeemDisabled &&
+            (showLoader || (isRecovery && isTransferCompletedLoading))
+          }
           error={statusMessage}
         >
           Redeem
@@ -335,7 +426,21 @@ function Redeem() {
   return (
     <>
       <StepDescription>Receive the tokens on the target chain</StepDescription>
-      {manualRedeem ? nonRelayContent : relayerContent}
+      {useAutomaticRelay ? (
+        <AutomaticRelayRedeem
+          isTransferCompleted={isTransferCompleted}
+          chainId={targetChain}
+          handleManualRedeem={
+            isNativeEligible && useNativeRedeem
+              ? handleNativeClick
+              : handleClick
+          }
+        />
+      ) : manualRedeem ? (
+        nonRelayContent
+      ) : (
+        relayerContent
+      )}
     </>
   );
 }
