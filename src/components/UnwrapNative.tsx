@@ -1,4 +1,5 @@
 import {
+  CHAIN_ID_ARBITRUM,
   CHAIN_ID_AVAX,
   CHAIN_ID_BSC,
   CHAIN_ID_ETH,
@@ -8,6 +9,7 @@ import {
   CHAIN_ID_NEON,
   CHAIN_ID_OASIS,
   CHAIN_ID_POLYGON,
+  CHAIN_ID_BASE,
   ethers_contracts,
 } from "@certusone/wormhole-sdk";
 import {
@@ -24,6 +26,8 @@ import { formatUnits } from "ethers/lib/utils";
 import { useCallback, useEffect, useState } from "react";
 import { useEthereumProvider } from "../contexts/EthereumProviderContext";
 import useIsWalletReady from "../hooks/useIsWalletReady";
+import arbitrumIcon from "../icons/arbitrum.svg";
+import baseIcon from "../icons/base.svg";
 import avaxIcon from "../icons/avax.svg";
 import bnbIcon from "../icons/bnb.svg";
 import ethIcon from "../icons/eth.svg";
@@ -42,6 +46,8 @@ import {
   receiveDataWrapper,
 } from "../store/helpers";
 import {
+  ARBWETH_ADDRESS,
+  ARBWETH_DECIMALS,
   WAVAX_ADDRESS,
   WAVAX_DECIMALS,
   WBNB_ADDRESS,
@@ -60,6 +66,8 @@ import {
   WNEON_DECIMALS,
   WROSE_ADDRESS,
   WROSE_DECIMALS,
+  BASE_WETH_ADDRESS,
+  BASE_WETH_DECIMALS,
 } from "../utils/consts";
 import parseError from "../utils/parseError";
 import ButtonWithLoader from "./ButtonWithLoader";
@@ -153,6 +161,18 @@ const supportedTokens = {
     icon: moonbeamIcon,
     address: WGLMR_ADDRESS,
     decimals: WGLMR_DECIMALS,
+  },
+  [CHAIN_ID_ARBITRUM]: {
+    symbol: "WETH",
+    icon: arbitrumIcon,
+    address: ARBWETH_ADDRESS,
+    decimals: ARBWETH_DECIMALS,
+  },
+  [CHAIN_ID_BASE]: {
+    symbol: "WETH",
+    icon: baseIcon,
+    address: BASE_WETH_ADDRESS,
+    decimals: BASE_WETH_DECIMALS,
   },
 } as const;
 

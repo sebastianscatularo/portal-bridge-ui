@@ -23,16 +23,33 @@ import {
   CHAIN_ID_INJECTIVE,
   CHAIN_ID_OPTIMISM,
   CHAIN_ID_SUI,
+  CHAIN_ID_BASE,
 } from "@certusone/wormhole-sdk";
 import { CHAIN_ID_NEAR } from "@certusone/wormhole-sdk/lib/esm";
-import { Button, makeStyles, Typography } from "@material-ui/core";
+import { Button, makeStyles, Typography, Chip } from "@material-ui/core";
 import { Transaction } from "../store/transferSlice";
-import { CLUSTER, getExplorerName } from "../utils/consts";
+import { CLUSTER, getExplorerName, getWormholescanLink } from "../utils/consts";
 
 const useStyles = makeStyles((theme) => ({
   tx: {
     marginTop: theme.spacing(1),
     textAlign: "center",
+  },
+  txButtons: {
+    display: "flex",
+    justifyContent: "center",
+    gap: theme.spacing(3),
+    marginTop: 20,
+  },
+  wormscanButton: {
+    position: "relative",
+  },
+  newTag: {
+    position: "absolute",
+    backgroundColor: theme.palette.warning.main,
+    color: theme.palette.background.default,
+    fontSize: 12,
+    fontWeight: 500,
   },
   viewButton: {
     marginTop: theme.spacing(1),
@@ -42,9 +59,11 @@ const useStyles = makeStyles((theme) => ({
 export default function ShowTx({
   chainId,
   tx,
+  showWormscanLink = true,
 }: {
   chainId: ChainId;
   tx: Transaction;
+  showWormscanLink?: boolean;
 }) {
   const classes = useStyles();
   const showExplorerLink =
@@ -56,40 +75,40 @@ export default function ShowTx({
         chainId === CHAIN_ID_APTOS));
   const explorerAddress =
     chainId === CHAIN_ID_ETH
-      ? `https://${CLUSTER === "testnet" ? "goerli." : ""}etherscan.io/tx/${
-          tx?.id
-        }`
+      ? `https://${
+          CLUSTER === "testnet" ? "goerli." : ""
+        }etherscan.io/tx/${tx?.id}`
       : chainId === CHAIN_ID_BSC
-      ? `https://${CLUSTER === "testnet" ? "testnet." : ""}bscscan.com/tx/${
-          tx?.id
-        }`
+      ? `https://${
+          CLUSTER === "testnet" ? "testnet." : ""
+        }bscscan.com/tx/${tx?.id}`
       : chainId === CHAIN_ID_POLYGON
-      ? `https://${CLUSTER === "testnet" ? "mumbai." : ""}polygonscan.com/tx/${
-          tx?.id
-        }`
+      ? `https://${
+          CLUSTER === "testnet" ? "mumbai." : ""
+        }polygonscan.com/tx/${tx?.id}`
       : chainId === CHAIN_ID_AVAX
-      ? `https://${CLUSTER === "testnet" ? "testnet." : ""}snowtrace.io/tx/${
-          tx?.id
-        }`
+      ? `https://${
+          CLUSTER === "testnet" ? "testnet." : ""
+        }snowtrace.io/tx/${tx?.id}`
       : chainId === CHAIN_ID_OASIS
       ? `https://${
           CLUSTER === "testnet" ? "testnet." : ""
         }explorer.emerald.oasis.dev/tx/${tx?.id}`
       : chainId === CHAIN_ID_AURORA
-      ? `https://${CLUSTER === "testnet" ? "testnet." : ""}aurorascan.dev/tx/${
-          tx?.id
-        }`
+      ? `https://${
+          CLUSTER === "testnet" ? "testnet." : ""
+        }aurorascan.dev/tx/${tx?.id}`
       : chainId === CHAIN_ID_FANTOM
-      ? `https://${CLUSTER === "testnet" ? "testnet." : ""}ftmscan.com/tx/${
-          tx?.id
-        }`
+      ? `https://${
+          CLUSTER === "testnet" ? "testnet." : ""
+        }ftmscan.com/tx/${tx?.id}`
       : chainId === CHAIN_ID_KLAYTN
-      ? `https://${CLUSTER === "testnet" ? "baobab." : ""}scope.klaytn.com/tx/${
-          tx?.id
-        }`
+      ? `https://${
+          CLUSTER === "testnet" ? "baobab." : ""
+        }scope.klaytn.com/tx/${tx?.id}`
       : chainId === CHAIN_ID_CELO
       ? `https://${
-          CLUSTER === "testnet" ? "alfajores-celoscan.io" : "explorer.celo.org"
+          CLUSTER === "testnet" ? "alfajores.celoscan.io" : "explorer.celo.org"
         }/tx/${tx?.id}`
       : chainId === CHAIN_ID_KARURA
       ? `https://${
@@ -124,17 +143,21 @@ export default function ShowTx({
             : "phoenix-1"
         }/tx/${tx?.id}`
       : chainId === CHAIN_ID_ALGORAND
-      ? `https://${CLUSTER === "testnet" ? "testnet." : ""}algoexplorer.io/tx/${
-          tx?.id
-        }`
+      ? `https://${
+          CLUSTER === "testnet" ? "testnet." : ""
+        }algoexplorer.io/tx/${tx?.id}`
       : chainId === CHAIN_ID_NEAR
       ? `https://explorer.${
           CLUSTER === "testnet" ? "testnet." : ""
         }near.org/transactions/${tx?.id}`
       : chainId === CHAIN_ID_MOONBEAM
-      ? `https://${CLUSTER === "testnet" ? "moonbase." : ""}moonscan.io/tx/${
-          tx?.id
-        }`
+      ? `https://${
+          CLUSTER === "testnet" ? "moonbase." : ""
+        }moonscan.io/tx/${tx?.id}`
+      : chainId === CHAIN_ID_BASE
+      ? `https://${
+          CLUSTER === "testnet" ? "goerli." : ""
+        }basescan.org/tx/${tx?.id}`
       : chainId === CHAIN_ID_XPLA
       ? `https://explorer.xpla.io/${
           CLUSTER === "testnet" ? "testnet" : "mainnet"
@@ -148,9 +171,9 @@ export default function ShowTx({
             : ""
         }`
       : chainId === CHAIN_ID_ARBITRUM
-      ? `https://${CLUSTER === "testnet" ? "goerli." : ""}arbiscan.io/tx/${
-          tx?.id
-        }`
+      ? `https://${
+          CLUSTER === "testnet" ? "goerli." : ""
+        }arbiscan.io/tx/${tx?.id}`
       : chainId === CHAIN_ID_INJECTIVE
       ? `https://${
           CLUSTER === "testnet" ? "testnet." : ""
@@ -172,21 +195,40 @@ export default function ShowTx({
 
   return (
     <div className={classes.tx}>
-      <Typography noWrap component="div" variant="body2">
-        {tx.id}
-      </Typography>
-      {showExplorerLink && explorerAddress ? (
-        <Button
-          href={explorerAddress}
-          target="_blank"
-          rel="noopener noreferrer"
-          size="small"
-          variant="outlined"
-          className={classes.viewButton}
-        >
-          View on {explorerName}
-        </Button>
-      ) : null}
+      <div>
+        <Typography noWrap component="div" variant="body2">
+          {tx.id}
+        </Typography>
+      </div>
+      <div className={classes.txButtons}>
+        {showExplorerLink && explorerAddress ? (
+          <Button
+            href={explorerAddress}
+            target="_blank"
+            rel="noopener noreferrer"
+            size="small"
+            variant="outlined"
+            className={classes.viewButton}
+          >
+            View on {explorerName}
+          </Button>
+        ) : null}
+        {showExplorerLink && showWormscanLink && tx.id && (
+          <div className={classes.wormscanButton}>
+            <Button
+              href={getWormholescanLink(tx.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              size="small"
+              variant="outlined"
+              className={classes.viewButton}
+            >
+              View on Wormholescan
+            </Button>
+            <Chip className={classes.newTag} label="NEW!" size="small" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

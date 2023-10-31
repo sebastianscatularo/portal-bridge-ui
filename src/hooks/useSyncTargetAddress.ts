@@ -5,6 +5,7 @@ import {
   CHAIN_ID_NEAR,
   CHAIN_ID_SOLANA,
   CHAIN_ID_XPLA,
+  CHAIN_ID_SEI,
   isEVMChain,
   isTerraChain,
   uint8ArrayToHex,
@@ -27,6 +28,7 @@ import { setTargetAddressHex as setNFTTargetAddressHex } from "../store/nftSlice
 import {
   selectNFTTargetAsset,
   selectNFTTargetChain,
+  selectTransferIsTBTC,
   selectTransferTargetAsset,
   selectTransferTargetChain,
   selectTransferTargetParsedTokenAccount,
@@ -43,13 +45,14 @@ import { useAptosContext } from "../contexts/AptosWalletContext";
 import { useInjectiveContext } from "../contexts/InjectiveWalletContext";
 import { useTerraWallet } from "../contexts/TerraWalletContext";
 import { useSuiWallet } from "../contexts/SuiWalletContext";
+import { useSeiWallet } from "../contexts/SeiWalletContext";
 
 function useSyncTargetAddress(shouldFire: boolean, nft?: boolean) {
   const dispatch = useDispatch();
   const targetChain = useSelector(
     nft ? selectNFTTargetChain : selectTransferTargetChain
   );
-  const { signerAddress } = useEthereumProvider(targetChain);
+  const { signerAddress } = useEthereumProvider(targetChain as any);
   const { publicKey: solPK } = useSolanaWallet();
   const targetAsset = useSelector(
     nft ? selectNFTTargetAsset : selectTransferTargetAsset
@@ -58,14 +61,17 @@ function useSyncTargetAddress(shouldFire: boolean, nft?: boolean) {
     selectTransferTargetParsedTokenAccount
   );
   const targetTokenAccountPublicKey = targetParsedTokenAccount?.publicKey;
-  const terraWallet = useTerraWallet(targetChain);
+  const terraWallet = useTerraWallet(targetChain as any);
   const xplaWallet = useXplaWallet();
   const { address: algoAccount } = useAlgorandWallet();
   const { account: aptosAddress } = useAptosContext();
   const { accountId: nearAccountId, wallet } = useNearContext();
   const { address: injAddress } = useInjectiveContext();
+  const isTBTC = useSelector(selectTransferIsTBTC);
   const suiWallet = useSuiWallet();
   const suiAddress = suiWallet?.getAddress();
+  const seiWallet = useSeiWallet();
+  const seiAddress = seiWallet?.getAddress();
   const setTargetAddressHex = nft
     ? setNFTTargetAddressHex
     : setTransferTargetAddressHex;
@@ -80,7 +86,13 @@ function useSyncTargetAddress(shouldFire: boolean, nft?: boolean) {
         );
       }
       // TODO: have the user explicitly select an account on solana
-      else if (
+      else if (!nft && solPK && targetChain === CHAIN_ID_SOLANA && isTBTC) {
+        dispatch(
+          setTargetAddressHex(
+            uint8ArrayToHex(zeroPad(new PublicKey(solPK).toBytes(), 32))
+          )
+        );
+      } else if (
         !nft && // only support existing, non-derived token accounts for token transfers (nft flow doesn't check balance)
         targetChain === CHAIN_ID_SOLANA &&
         targetTokenAccountPublicKey
@@ -208,6 +220,12 @@ function useSyncTargetAddress(shouldFire: boolean, nft?: boolean) {
         })();
       } else if (targetChain === CHAIN_ID_SUI && suiAddress) {
         dispatch(setTargetAddressHex(uint8ArrayToHex(zeroPad(suiAddress, 32))));
+      } else if (targetChain === CHAIN_ID_SEI && seiAddress) {
+        dispatch(
+          setTargetAddressHex(
+            uint8ArrayToHex(zeroPad(cosmos.canonicalAddress(seiAddress), 32))
+          )
+        );
       } else {
         dispatch(setTargetAddressHex(undefined));
       }
@@ -233,6 +251,8 @@ function useSyncTargetAddress(shouldFire: boolean, nft?: boolean) {
     aptosAddress,
     injAddress,
     suiAddress,
+    isTBTC,
+    seiAddress,
   ]);
 }
 

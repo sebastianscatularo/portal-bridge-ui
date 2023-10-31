@@ -3,46 +3,51 @@ import {
   CHAIN_ID_ACALA,
   CHAIN_ID_ALGORAND,
   CHAIN_ID_APTOS,
+  CHAIN_ID_ARBITRUM,
   CHAIN_ID_AURORA,
   CHAIN_ID_AVAX,
+  CHAIN_ID_BASE,
   CHAIN_ID_BSC,
+  CHAIN_ID_BTC,
   CHAIN_ID_CELO,
   CHAIN_ID_ETH,
   CHAIN_ID_FANTOM,
+  CHAIN_ID_INJECTIVE,
   CHAIN_ID_KARURA,
   CHAIN_ID_KLAYTN,
   CHAIN_ID_MOONBEAM,
   CHAIN_ID_NEAR,
   CHAIN_ID_NEON,
   CHAIN_ID_OASIS,
+  CHAIN_ID_OPTIMISM,
   CHAIN_ID_POLYGON,
   CHAIN_ID_SOLANA,
+  CHAIN_ID_SUI,
   CHAIN_ID_TERRA,
-  CHAIN_ID_XPLA,
   CHAIN_ID_TERRA2,
+  CHAIN_ID_XPLA,
+  CHAIN_ID_SEI,
   CONTRACTS,
+  coalesceChainName,
   isEVMChain,
   isTerraChain,
   TerraChainId,
-  coalesceChainName,
-  CHAIN_ID_ARBITRUM,
-  CHAIN_ID_INJECTIVE,
-  CHAIN_ID_OPTIMISM,
   hexToNativeString,
   ensureHexPrefix,
   uint8ArrayToHex,
   hexToNativeAssetString,
-  CHAIN_ID_SUI,
+  cosmos,
 } from "@certusone/wormhole-sdk";
 import { clusterApiUrl } from "@solana/web3.js";
 import { getAddress } from "ethers/lib/utils";
-import { CHAIN_CONFIG_MAP } from "../config";
+import seiIcon from "../icons/sei.svg";
 import aptosIcon from "../icons/aptos.svg";
 import acalaIcon from "../icons/acala.svg";
 import algorandIcon from "../icons/algorand.svg";
 import arbitrumIcon from "../icons/arbitrum.svg";
 import auroraIcon from "../icons/aurora.svg";
 import avaxIcon from "../icons/avax.svg";
+import baseIcon from "../icons/base.svg";
 import bscIcon from "../icons/bsc.svg";
 import celoIcon from "../icons/celo.svg";
 import ethIcon from "../icons/eth.svg";
@@ -65,11 +70,8 @@ import { ConnectConfig, keyStores } from "near-api-js";
 import { AptosNetwork } from "./aptos";
 import { getNetworkInfo, Network } from "@injectivelabs/networks";
 import { ChainId as InjectiveChainId } from "@injectivelabs/ts-types";
-import {
-  testnetConnection,
-  localnetConnection,
-  Connection,
-} from "@mysten/sui.js";
+import { ChainConfiguration } from "@sei-js/react";
+import { Connection } from "@mysten/sui.js";
 
 export type Cluster = "devnet" | "testnet" | "mainnet";
 export const CLUSTER: Cluster =
@@ -78,6 +80,7 @@ export const CLUSTER: Cluster =
     : process.env.REACT_APP_CLUSTER === "testnet"
     ? "testnet"
     : "devnet";
+
 export interface ChainInfo {
   id: ChainId;
   name: string;
@@ -117,8 +120,13 @@ export const CHAINS: ChainInfo[] =
           logo: avaxIcon,
         },
         {
+          id: CHAIN_ID_BASE,
+          name: "Base",
+          logo: baseIcon,
+        },
+        {
           id: CHAIN_ID_BSC,
-          name: "Binance Smart Chain",
+          name: "BNB Chain",
           logo: bscIcon,
         },
         {
@@ -175,6 +183,11 @@ export const CHAINS: ChainInfo[] =
           id: CHAIN_ID_POLYGON,
           name: "Polygon",
           logo: polygonIcon,
+        },
+        {
+          id: CHAIN_ID_SEI,
+          name: "Sei",
+          logo: seiIcon,
         },
         {
           id: CHAIN_ID_SOLANA,
@@ -235,8 +248,13 @@ export const CHAINS: ChainInfo[] =
           logo: avaxIcon,
         },
         {
+          id: CHAIN_ID_BASE,
+          name: "Base (Goerli)",
+          logo: baseIcon,
+        },
+        {
           id: CHAIN_ID_BSC,
-          name: "Binance Smart Chain",
+          name: "BNB Chain",
           logo: bscIcon,
         },
         {
@@ -295,6 +313,11 @@ export const CHAINS: ChainInfo[] =
           logo: polygonIcon,
         },
         {
+          id: CHAIN_ID_SEI,
+          name: "Sei",
+          logo: seiIcon,
+        },
+        {
           id: CHAIN_ID_SOLANA,
           name: "Solana",
           logo: solanaIcon,
@@ -333,7 +356,7 @@ export const CHAINS: ChainInfo[] =
         },
         {
           id: CHAIN_ID_BSC,
-          name: "Binance Smart Chain",
+          name: "BNB Chain",
           logo: bscIcon,
         },
         {
@@ -386,13 +409,98 @@ export const CHAINS_WITH_NFT_SUPPORT = CHAINS.filter(
     id === CHAIN_ID_MOONBEAM ||
     id === CHAIN_ID_ARBITRUM ||
     id === CHAIN_ID_OPTIMISM ||
-    id === CHAIN_ID_APTOS
+    id === CHAIN_ID_APTOS ||
+    id === CHAIN_ID_BASE
 );
 export type ChainsById = { [key in ChainId]: ChainInfo };
 export const CHAINS_BY_ID: ChainsById = CHAINS.reduce((obj, chain) => {
   obj[chain.id] = chain;
   return obj;
 }, {} as ChainsById);
+
+const THRESHOLD_GATEWAYS_MAINNET: any = {
+  [CHAIN_ID_POLYGON]: "0x09959798B95d00a3183d20FaC298E4594E599eab",
+  [CHAIN_ID_OPTIMISM]: "0x1293a54e160D1cd7075487898d65266081A15458",
+  [CHAIN_ID_ARBITRUM]: "0x1293a54e160D1cd7075487898d65266081A15458",
+  [CHAIN_ID_BASE]: "0x09959798B95d00a3183d20FaC298E4594E599eab",
+  [CHAIN_ID_SOLANA]: "87MEvHZCXE3ML5rrmh5uX1FbShHmRXXS32xJDGbQ7h5t", // Solana TBTC Gateway Program
+} as const;
+
+const THRESHOLD_GATEWAYS_TESTNET: any = {
+  [CHAIN_ID_POLYGON]: "0x91fe7128f74dbd4f031ea3d90fc5ea4dcfd81818",
+  [CHAIN_ID_OPTIMISM]: "0x6449F4381f3d63bDfb36B3bDc375724aD3cD4621",
+  [CHAIN_ID_ARBITRUM]: "0x31A15e213B59E230b45e8c5c99dAFAc3d1236Ee2",
+  [CHAIN_ID_BASE]: "0xe3e0511EEbD87F08FbaE4486419cb5dFB06e1343",
+  [CHAIN_ID_SOLANA]: "87MEvHZCXE3ML5rrmh5uX1FbShHmRXXS32xJDGbQ7h5t", // Solana TBTC Gateway Program
+} as const;
+
+export const THRESHOLD_GATEWAYS: any = {
+  ...(CLUSTER === "mainnet"
+    ? THRESHOLD_GATEWAYS_MAINNET
+    : THRESHOLD_GATEWAYS_TESTNET),
+} as const;
+
+const THRESHOLD_TBTC_CONTRACTS_MAINNET: any = {
+  [CHAIN_ID_ETH]: "0x18084fbA666a33d37592fA2633fD49a74DD93a88",
+  [CHAIN_ID_POLYGON]: "0x236aa50979D5f3De3Bd1Eeb40E81137F22ab794b",
+  [CHAIN_ID_OPTIMISM]: "0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40",
+  [CHAIN_ID_ARBITRUM]: "0x6c84a8f1c29108F47a79964b5Fe888D4f4D0dE40",
+  [CHAIN_ID_BASE]: "0x236aa50979D5f3De3Bd1Eeb40E81137F22ab794b",
+  [CHAIN_ID_SOLANA]: "6DNSN2BJsaPFdFFc1zP37kkeNe4Usc1Sqkzr9C9vPWcU", // Solana TBTC Mint
+} as const;
+
+const THRESHOLD_TBTC_CONTRACTS_TESTNET: any = {
+  [CHAIN_ID_ETH]: "0x679874fBE6D4E7Cc54A59e315FF1eB266686a937",
+  [CHAIN_ID_POLYGON]: "0xBcD7917282E529BAA6f232DdDc75F3901245A492",
+  [CHAIN_ID_OPTIMISM]: "0x1a53759DE2eADf73bd0b05c07a4F1F5B7912dA3d",
+  [CHAIN_ID_ARBITRUM]: "0x85727F4725A4B2834e00Db1AA8e1b843a188162F",
+  [CHAIN_ID_BASE]: "0x783349cd20f26CE12e747b1a17bC38D252c9e119",
+  [CHAIN_ID_SOLANA]: "6DNSN2BJsaPFdFFc1zP37kkeNe4Usc1Sqkzr9C9vPWcU", // Solana TBTC Mint
+} as const;
+
+const THRESHOLD_TBTC_SOLANA_PROGRAM_TESTNET =
+  "Gj93RRt6QB7FjmyokAD5rcMAku7pq3Fk2Aa8y6nNbwsV";
+
+// TODO update this when mainnet tbtc solana program is deployed
+const THRESHOLD_TBTC_SOLANA_PROGRAM_MAINNET =
+  "Gj93RRt6QB7FjmyokAD5rcMAku7pq3Fk2Aa8y6nNbwsV";
+
+export const THRESHOLD_TBTC_SOLANA_PROGRAM: any =
+  CLUSTER === "mainnet"
+    ? THRESHOLD_TBTC_SOLANA_PROGRAM_MAINNET
+    : THRESHOLD_TBTC_SOLANA_PROGRAM_TESTNET;
+
+export const THRESHOLD_TBTC_CONTRACTS: any = {
+  ...(CLUSTER === "mainnet"
+    ? THRESHOLD_TBTC_CONTRACTS_MAINNET
+    : THRESHOLD_TBTC_CONTRACTS_TESTNET),
+} as const;
+
+// prettier-ignore
+export const TBTC_ASSET_ADDRESS = THRESHOLD_TBTC_CONTRACTS[CHAIN_ID_ETH].slice(2).padStart(64, "0");
+export const THRESHOLD_ARBITER_FEE = 0;
+export const THRESHOLD_NONCE = 0;
+
+// TRM screening chain names map with wormhole chain ids
+// https://documentation.trmlabs.com/tag/Supported-Blockchain-List
+export const getTrmChainName = (chain: ChainId) => {
+  const trm_chain_names: any = {
+    [CHAIN_ID_ALGORAND]: "algorand",
+    [CHAIN_ID_BTC]: "bitcoin",
+    [CHAIN_ID_SOLANA]: "solana",
+    [CHAIN_ID_AVAX]: "avalanche_c_chain",
+    [CHAIN_ID_BSC]: "binance_smart_chain",
+    [CHAIN_ID_CELO]: "celo",
+    [CHAIN_ID_OPTIMISM]: "optimism",
+    [CHAIN_ID_POLYGON]: "polygon",
+    [CHAIN_ID_ARBITRUM]: "arbitrum",
+  };
+
+  if (trm_chain_names[chain]) return trm_chain_names[chain];
+  if (isEVMChain(chain)) return "ethereum";
+
+  return "";
+};
 
 export const COMING_SOON_CHAINS: ChainInfo[] = [];
 export const getDefaultNativeCurrencySymbol = (chainId: ChainId) =>
@@ -434,6 +542,8 @@ export const getDefaultNativeCurrencySymbol = (chainId: ChainId) =>
     ? "NEON"
     : chainId === CHAIN_ID_MOONBEAM
     ? "GLMR"
+    : chainId === CHAIN_ID_BASE
+    ? "ETH"
     : chainId === CHAIN_ID_APTOS
     ? "APTOS"
     : chainId === CHAIN_ID_ARBITRUM
@@ -495,6 +605,8 @@ export const getExplorerName = (chainId: ChainId) =>
     ? "Solscan"
     : chainId === CHAIN_ID_MOONBEAM
     ? "Moonscan"
+    : chainId === CHAIN_ID_BASE
+    ? "BaseScan"
     : chainId === CHAIN_ID_XPLA
     ? "XPLA Explorer"
     : chainId === CHAIN_ID_ARBITRUM
@@ -551,6 +663,9 @@ export const ARBITRUM_NETWORK_CHAIN_ID =
   CLUSTER === "mainnet" ? 42161 : CLUSTER === "testnet" ? 421613 : 1381;
 export const OPTIMISM_NETWORK_CHAIN_ID =
   CLUSTER === "mainnet" ? 10 : CLUSTER === "testnet" ? 420 : 1381;
+export const BASE_NETWORK_CHAIN_ID =
+  CLUSTER === "mainnet" ? 8453 : CLUSTER === "testnet" ? 84531 : 1381;
+
 export const getEvmChainId = (chainId: ChainId) =>
   chainId === CHAIN_ID_ETH
     ? ETH_NETWORK_CHAIN_ID
@@ -582,6 +697,8 @@ export const getEvmChainId = (chainId: ChainId) =>
     ? ARBITRUM_NETWORK_CHAIN_ID
     : chainId === CHAIN_ID_OPTIMISM
     ? OPTIMISM_NETWORK_CHAIN_ID
+    : chainId === CHAIN_ID_BASE
+    ? BASE_NETWORK_CHAIN_ID
     : undefined;
 export const SOLANA_HOST = process.env.REACT_APP_SOLANA_API_URL
   ? process.env.REACT_APP_SOLANA_API_URL
@@ -592,7 +709,7 @@ export const SOLANA_HOST = process.env.REACT_APP_SOLANA_API_URL
   : "http://localhost:8899";
 
 export const getTerraConfig = (chainId: TerraChainId) => {
-  const isClassic = chainId === CHAIN_ID_TERRA;
+  const isClassic = false;
   return CLUSTER === "mainnet"
     ? {
         URL:
@@ -658,9 +775,29 @@ export const APTOS_NETWORK =
 export const APTOS_NATIVE_DECIMALS = 8;
 export const APTOS_NATIVE_TOKEN_KEY = "0x1::aptos_coin::AptosCoin";
 
+export const SEI_CHAIN_CONFIGURATION: ChainConfiguration =
+  CLUSTER === "mainnet"
+    ? {
+        chainId: "pacific-1",
+        restUrl: "https://sei-api.polkachu.com/",
+        rpcUrl: "https://sei-rpc.polkachu.com/",
+      }
+    : {
+        chainId: "atlantic-2",
+        restUrl: "https://rest.atlantic-2.seinetwork.io/",
+        rpcUrl: "https://rpc.atlantic-2.seinetwork.io/",
+      };
+
+export const SEI_TRANSLATOR =
+  CLUSTER === "mainnet"
+    ? "sei189adguawugk3e55zn63z8r9ll29xrjwca636ra7v7gxuzn98sxyqwzt47l"
+    : "sei1dkdwdvknx0qav5cp5kw68mkn3r99m3svkyjfvkztwh97dv2lm0ksj6xrak";
+export const SEI_TRANSLATER_TARGET = cosmos.canonicalAddress(SEI_TRANSLATOR);
+export const SEI_DECIMALS = 6;
+
 export const getInjectiveNetworkName = () => {
   if (CLUSTER === "mainnet") {
-    return Network.MainnetK8s;
+    return Network.Mainnet;
   } else if (CLUSTER === "testnet") {
     return Network.TestnetK8s;
   }
@@ -668,7 +805,7 @@ export const getInjectiveNetworkName = () => {
 };
 export const getInjectiveNetwork = () => {
   if (CLUSTER === "mainnet") {
-    return Network.MainnetK8s;
+    return Network.Mainnet;
   } else if (CLUSTER === "testnet") {
     return Network.TestnetK8s;
   }
@@ -677,7 +814,7 @@ export const getInjectiveNetwork = () => {
 
 export const getInjectiveNetworkInfo = () => {
   if (CLUSTER === "mainnet") {
-    return getNetworkInfo(Network.MainnetK8s);
+    return getNetworkInfo(Network.Mainnet);
   } else if (CLUSTER === "testnet") {
     return getNetworkInfo(Network.TestnetK8s);
   }
@@ -695,10 +832,10 @@ export const getInjectiveNetworkChainId = () => {
 
 export const SUI_CONNECTION =
   CLUSTER === "mainnet"
-    ? new Connection({ fullnode: "https://rpc.mainnet.sui.io" })
+    ? new Connection({ fullnode: "https://fullnode.mainnet.sui.io:443" })
     : CLUSTER === "testnet"
-    ? testnetConnection
-    : localnetConnection;
+    ? new Connection({ fullnode: "https://fullnode.testnet.sui.io:443" })
+    : new Connection({ fullnode: "http://127.0.0.1:9000" });
 
 export const SUI_NATIVE_DECIMALS = 9;
 export const SUI_NATIVE_TOKEN_KEY = "0x2::sui::SUI";
@@ -721,6 +858,25 @@ export const ALGORAND_HOST =
           "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         algodServer: "http://localhost",
         algodPort: "4001",
+      };
+export const ALGORAND_INDEXER =
+  CLUSTER === "mainnet"
+    ? {
+        token: "",
+        server: "https://mainnet-idx.algonode.cloud",
+        port: "443",
+      }
+    : CLUSTER === "testnet"
+    ? {
+        token: "",
+        server: "https://testnet-idx.algonode.cloud",
+        port: "443",
+      }
+    : {
+        token:
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        server: "http://localhost",
+        port: "8980",
       };
 export const KARURA_HOST =
   CLUSTER === "mainnet"
@@ -1158,36 +1314,73 @@ export const COVALENT_ARBITRUM =
   CLUSTER === "devnet" ? null : ARBITRUM_NETWORK_CHAIN_ID; // Covalent only supports mainnet
 export const COVALENT_OPTIMISM =
   CLUSTER === "devnet" ? null : OPTIMISM_NETWORK_CHAIN_ID; // Covalent only supports mainnet
+
+export const COVALENT_BASE =
+  CLUSTER === "devnet" ? null : BASE_NETWORK_CHAIN_ID;
+
+export type ChainIdMap = {
+  [key in ChainId]?: number | string | null;
+};
+
+export const COVALENT_CHAIN_MAINNET: ChainIdMap = {
+  [CHAIN_ID_ETH]: 1,
+  [CHAIN_ID_BSC]: BSC_NETWORK_CHAIN_ID,
+  [CHAIN_ID_POLYGON]: POLYGON_NETWORK_CHAIN_ID,
+  [CHAIN_ID_AVAX]: AVAX_NETWORK_CHAIN_ID,
+  [CHAIN_ID_KLAYTN]: null, // suspended network
+  [CHAIN_ID_FANTOM]: FANTOM_NETWORK_CHAIN_ID,
+  [CHAIN_ID_CELO]: null,
+  [CHAIN_ID_NEON]: null,
+  [CHAIN_ID_MOONBEAM]: COVALENT_MOONBEAM,
+  [CHAIN_ID_BASE]: COVALENT_BASE,
+  [CHAIN_ID_ARBITRUM]: COVALENT_ARBITRUM,
+  [CHAIN_ID_OPTIMISM]: COVALENT_OPTIMISM,
+} as const;
+
+export const COVALENT_CHAIN_TESTNET: ChainIdMap = {
+  [CHAIN_ID_ETH]: 5,
+  [CHAIN_ID_BSC]: BSC_NETWORK_CHAIN_ID,
+  [CHAIN_ID_POLYGON]: POLYGON_NETWORK_CHAIN_ID,
+  [CHAIN_ID_AVAX]: AVAX_NETWORK_CHAIN_ID,
+  [CHAIN_ID_KLAYTN]: null,
+  [CHAIN_ID_FANTOM]: FANTOM_NETWORK_CHAIN_ID,
+  [CHAIN_ID_CELO]: null,
+  [CHAIN_ID_NEON]: null,
+  [CHAIN_ID_MOONBEAM]: COVALENT_MOONBEAM,
+  [CHAIN_ID_BASE]: COVALENT_BASE,
+  [CHAIN_ID_ARBITRUM]: COVALENT_ARBITRUM,
+  [CHAIN_ID_OPTIMISM]: COVALENT_OPTIMISM,
+} as const;
+
+export const COVALENT_CHAIN_DEVNET: ChainIdMap = {
+  [CHAIN_ID_ETH]: 1,
+  [CHAIN_ID_BSC]: 56,
+  [CHAIN_ID_POLYGON]: 137,
+  [CHAIN_ID_AVAX]: 137,
+  [CHAIN_ID_KLAYTN]: null,
+  [CHAIN_ID_FANTOM]: 250,
+  [CHAIN_ID_CELO]: null,
+  [CHAIN_ID_NEON]: null,
+  [CHAIN_ID_MOONBEAM]: null,
+  [CHAIN_ID_BASE]: null,
+  [CHAIN_ID_ARBITRUM]: null,
+  [CHAIN_ID_OPTIMISM]: null,
+} as const;
+
 export const COVALENT_GET_TOKENS_URL = (
   chainId: ChainId,
   walletAddress: string,
   nft?: boolean,
   noNftMetadata?: boolean
 ) => {
-  const chainNum =
-    chainId === CHAIN_ID_ETH
-      ? COVALENT_ETHEREUM
-      : chainId === CHAIN_ID_BSC
-      ? COVALENT_BSC
-      : chainId === CHAIN_ID_POLYGON
-      ? COVALENT_POLYGON
-      : chainId === CHAIN_ID_AVAX
-      ? COVALENT_AVAX
-      : chainId === CHAIN_ID_FANTOM
-      ? COVALENT_FANTOM
-      : chainId === CHAIN_ID_KLAYTN
-      ? COVALENT_KLAYTN
-      : chainId === CHAIN_ID_CELO
-      ? COVALENT_CELO
-      : chainId === CHAIN_ID_NEON
-      ? COVALENT_NEON
-      : chainId === CHAIN_ID_MOONBEAM
-      ? COVALENT_MOONBEAM
-      : chainId === CHAIN_ID_ARBITRUM
-      ? COVALENT_ARBITRUM
-      : chainId === CHAIN_ID_OPTIMISM
-      ? COVALENT_OPTIMISM
-      : "";
+  let chainNum;
+  if (CLUSTER === "mainnet") {
+    chainNum = COVALENT_CHAIN_MAINNET[chainId];
+  } else if (CLUSTER === "testnet") {
+    chainNum = COVALENT_CHAIN_TESTNET[chainId];
+  } else {
+    chainNum = COVALENT_CHAIN_DEVNET[chainId];
+  }
   // https://www.covalenthq.com/docs/api/#get-/v1/{chain_id}/address/{address}/balances_v2/
   return chainNum
     ? `https://api.covalenthq.com/v1/${chainNum}/address/${walletAddress}/balances_v2/?key=${COVALENT_API_KEY}${
@@ -1251,6 +1444,14 @@ export const WETH_ADDRESS =
     ? "0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6"
     : "0xDDb64fE46a91D46ee29420539FC25FD07c5FEa3E";
 export const WETH_DECIMALS = 18;
+
+export const BASE_WETH_ADDRESS =
+  CLUSTER === "mainnet"
+    ? "0x4200000000000000000000000000000000000006"
+    : CLUSTER === "testnet"
+    ? "0x4200000000000000000000000000000000000006"
+    : "0xDDb64fE46a91D46ee29420539FC25FD07c5FEa3E";
+export const BASE_WETH_DECIMALS = 18;
 
 export const WBNB_ADDRESS =
   CLUSTER === "mainnet"
@@ -1355,6 +1556,14 @@ export const WGLMR_ADDRESS =
     ? "0xD909178CC99d318e4D46e7E66a972955859670E1"
     : "0xDDb64fE46a91D46ee29420539FC25FD07c5FEa3E";
 export const WGLMR_DECIMALS = 18;
+
+export const ARBWETH_ADDRESS =
+  CLUSTER === "mainnet"
+    ? "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
+    : CLUSTER === "testnet"
+    ? "0x0000000000000000000000000000000000000000"
+    : "0xDDb64fE46a91D46ee29420539FC25FD07c5FEa3E";
+export const ARBWETH_DECIMALS = 18;
 
 export const ALGO_DECIMALS = 6;
 
@@ -1512,6 +1721,7 @@ export const SUPPORTED_TERRA_TOKENS = ["uluna", "uusd"];
 export const TERRA_DEFAULT_FEE_DENOM = SUPPORTED_TERRA_TOKENS[0];
 
 export const XPLA_NATIVE_DENOM = "axpla";
+export const SEI_NATIVE_DENOM = "usei";
 
 export const getTerraFCDBaseUrl = (chainId: TerraChainId) =>
   CLUSTER === "mainnet"
@@ -1628,8 +1838,7 @@ export const MULTI_CHAIN_TOKENS: MultiChainInfo =
         [CHAIN_ID_POLYGON]: {},
       } as MultiChainInfo);
 
-export const AVAILABLE_MARKETS_URL =
-  "https://docs.wormhole.com/wormhole/overview-liquid-markets";
+export const AVAILABLE_MARKETS_URL = "docs/faqs/liquid-markets";
 
 export const SOLANA_SYSTEM_PROGRAM_ADDRESS = "11111111111111111111111111111111";
 export const FEATURED_MARKETS_JSON_URL =
@@ -1644,9 +1853,9 @@ export const logoOverrides = new Map<string, string>([
 
 export const getHowToAddTokensToWalletUrl = (chainId: ChainId) => {
   if (isEVMChain(chainId)) {
-    return "https://docs.wormhole.com/wormhole/video-tutorial-how-to-manually-add-tokens-to-your-wallet#metamask";
+    return "docs/video-tutorials/how-to-manually-add-tokens-to-your-wallet#metamask";
   } else if (isTerraChain(chainId)) {
-    return "https://docs.wormhole.com/wormhole/video-tutorial-how-to-manually-add-tokens-to-your-wallet#terra-station";
+    return "docs/video-tutorials/how-to-manually-add-tokens-to-your-wallet#terra-station";
   }
   return "";
 };
@@ -1675,18 +1884,6 @@ export const ETH_POLYGON_WRAPPED_TOKENS = [
 
 export const JUPITER_SWAP_BASE_URL = "https://jup.ag/swap";
 
-export const getIsTransferDisabled = (
-  chainId: ChainId,
-  isSourceChain: boolean
-) => {
-  const disableTransfers = CHAIN_CONFIG_MAP[chainId]?.disableTransfers;
-  return disableTransfers === "from"
-    ? isSourceChain
-    : disableTransfers === "to"
-    ? !isSourceChain
-    : !!disableTransfers;
-};
-
 export const LUNA_ADDRESS = "uluna";
 export const UST_ADDRESS = "uusd";
 
@@ -1711,10 +1908,10 @@ export const getCoinGeckoURL = (coinGeckoId: string) =>
 
 export const RELAYER_INFO_URL =
   CLUSTER === "mainnet"
-    ? "https://raw.githubusercontent.com/certusone/wormhole-relayer-list/main/relayer.json"
+    ? "empty-relayer-config.json"
     : CLUSTER === "testnet"
-    ? ""
-    : "/relayerExample.json";
+    ? "empty-relayer-config.json"
+    : "/local-relayer-config.json";
 
 export const RELAY_URL_EXTENSION = "/relayvaa/";
 
@@ -1851,4 +2048,10 @@ export const getAssetAddressNative = (
     return uint8ArrayToHex(address);
   }
   return hexToNativeAssetString(uint8ArrayToHex(address), chainId);
+};
+
+export const getWormholescanLink = (tx: string) => {
+  return `https://wormholescan.io/#/tx/${tx}?network=${
+    process.env.REACT_APP_CLUSTER === "mainnet" ? "MAINNET" : "TESTNET"
+  }`;
 };

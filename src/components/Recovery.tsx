@@ -9,6 +9,7 @@ import {
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA2,
   CHAIN_ID_XPLA,
+  CHAIN_ID_SEI,
   getEmitterAddressAlgorand,
   getEmitterAddressEth,
   getEmitterAddressInjective,
@@ -47,6 +48,7 @@ import {
   CircularProgress,
   Container,
   Divider,
+  Link,
   makeStyles,
   MenuItem,
   TextField,
@@ -73,7 +75,6 @@ import { COLORS } from "../muiTheme";
 import { setRecoveryVaa as setRecoveryNFTVaa } from "../store/nftSlice";
 import { setRecoveryVaa } from "../store/transferSlice";
 import {
-  ALGORAND_HOST,
   ALGORAND_TOKEN_BRIDGE_ID,
   CHAINS,
   CHAINS_BY_ID,
@@ -90,6 +91,8 @@ import {
   NEAR_TOKEN_BRIDGE_ACCOUNT,
   XPLA_LCD_CLIENT_CONFIG,
   getWalletAddressNative,
+  CLUSTER,
+  ALGORAND_INDEXER,
 } from "../utils/consts";
 import { getSignedVAAWithRetry } from "../utils/getSignedVAAWithRetry";
 import {
@@ -118,6 +121,22 @@ import {
   getEmitterAddressAndSequenceFromResponseSui,
   getOriginalPackageId,
 } from "@certusone/wormhole-sdk/lib/cjs/sui";
+import { getSeiWasmClient, parseRawLog, searchInLogs } from "../utils/sei";
+import { useVaaVerifier } from "../hooks/useVaaVerifier";
+import ChainWarningMessage from "./ChainWarningMessage";
+import { useDeepLinkRecoveryParams } from "../hooks/useDeepLinkRecoveryParams";
+
+const NOT_SUPPORTED_VAA_WARNING_MESSAGE = (
+  <>
+    This VAA was not generated from Token Bridge, or the type is not supported
+    yet. If you have any questions or believe this is a mistake, please open a
+    support ticket on{" "}
+    <Link href="https://discord.gg/wormholecrypto" target="_blank">
+      Discord
+    </Link>
+    .
+  </>
+);
 
 const useStyles = makeStyles((theme) => ({
   mainCard: {
@@ -147,31 +166,40 @@ async function fetchSignedVAA(
     sequence,
     WORMHOLE_RPC_HOSTS.length
   );
-  const gs3 = {
-    index: 3,
-    keys: [
-      "0x58CC3AE5C097b213cE3c81979e1B9f9570746AA5",
-      "0xfF6CB952589BDE862c25Ef4392132fb9D4A42157",
-      "0x114De8460193bdf3A2fCf81f86a09765F4762fD1",
-      "0x107A0086b32d7A0977926A205131d8731D39cbEB",
-      "0x8C82B2fd82FaeD2711d59AF0F2499D16e726f6b2",
-      "0x11b39756C042441BE6D8650b69b54EbE715E2343",
-      "0x54Ce5B4D348fb74B958e8966e2ec3dBd4958a7cd",
-      "0x15e7cAF07C4e3DC8e7C469f92C8Cd88FB8005a20",
-      "0x74a3bf913953D695260D88BC1aA25A4eeE363ef0",
-      "0x000aC0076727b35FBea2dAc28fEE5cCB0fEA768e",
-      "0xAF45Ced136b9D9e24903464AE889F5C8a723FC14",
-      "0xf93124b7c738843CBB89E864c862c38cddCccF95",
-      "0xD2CC37A4dc036a8D232b48f62cDD4731412f4890",
-      "0xDA798F6896A3331F64b48c12D1D57Fd9cbe70811",
-      "0x71AA1BE1D36CaFE3867910F99C09e347899C19C3",
-      "0x8192b6E7387CCd768277c17DAb1b7a5027c0b3Cf",
-      "0x178e21ad2E77AE06711549CFBB1f9c7a9d8096e8",
-      "0x5E1487F35515d02A92753504a8D75471b9f49EdB",
-      "0x6FbEBc898F403E4773E95feB15E80C9A99c8348d",
-    ],
-    expiry: 0,
-  };
+
+  const gs3 =
+    CLUSTER === "mainnet"
+      ? {
+          index: 3,
+          keys: [
+            "0x58CC3AE5C097b213cE3c81979e1B9f9570746AA5",
+            "0xfF6CB952589BDE862c25Ef4392132fb9D4A42157",
+            "0x114De8460193bdf3A2fCf81f86a09765F4762fD1",
+            "0x107A0086b32d7A0977926A205131d8731D39cbEB",
+            "0x8C82B2fd82FaeD2711d59AF0F2499D16e726f6b2",
+            "0x11b39756C042441BE6D8650b69b54EbE715E2343",
+            "0x54Ce5B4D348fb74B958e8966e2ec3dBd4958a7cd",
+            "0x15e7cAF07C4e3DC8e7C469f92C8Cd88FB8005a20",
+            "0x74a3bf913953D695260D88BC1aA25A4eeE363ef0",
+            "0x000aC0076727b35FBea2dAc28fEE5cCB0fEA768e",
+            "0xAF45Ced136b9D9e24903464AE889F5C8a723FC14",
+            "0xf93124b7c738843CBB89E864c862c38cddCccF95",
+            "0xD2CC37A4dc036a8D232b48f62cDD4731412f4890",
+            "0xDA798F6896A3331F64b48c12D1D57Fd9cbe70811",
+            "0x71AA1BE1D36CaFE3867910F99C09e347899C19C3",
+            "0x8192b6E7387CCd768277c17DAb1b7a5027c0b3Cf",
+            "0x178e21ad2E77AE06711549CFBB1f9c7a9d8096e8",
+            "0x5E1487F35515d02A92753504a8D75471b9f49EdB",
+            "0x6FbEBc898F403E4773E95feB15E80C9A99c8348d",
+          ],
+          expiry: 0,
+        }
+      : {
+          index: 0,
+          keys: ["0x13947Bd48b18E53fdAeEe77F3473391aC727C638"],
+          expiry: 0,
+        };
+
   const vaa = vaaBytes ? repairVaa(uint8ArrayToHex(vaaBytes), gs3) : undefined;
   return {
     vaa,
@@ -190,28 +218,40 @@ function handleError(e: any, enqueueSnackbar: any) {
 
 async function algo(tx: string, enqueueSnackbar: any) {
   try {
-    const algodClient = new algosdk.Algodv2(
-      ALGORAND_HOST.algodToken,
-      ALGORAND_HOST.algodServer,
-      ALGORAND_HOST.algodPort
+    const algoIndexer = new algosdk.Indexer(
+      ALGORAND_INDEXER.token,
+      ALGORAND_INDEXER.server,
+      ALGORAND_INDEXER.port
     );
-    const pendingInfo = await algodClient
-      .pendingTransactionInformation(tx)
-      .do();
+    const txnInfo = await algoIndexer.lookupTransactionByID(tx).do();
     let confirmedTxInfo: Record<string, any> | undefined = undefined;
     // This is the code from waitForConfirmation
-    if (pendingInfo !== undefined) {
+    if (txnInfo?.transaction !== undefined) {
       if (
-        pendingInfo["confirmed-round"] !== null &&
-        pendingInfo["confirmed-round"] > 0
+        txnInfo?.transaction["confirmed-round"] !== null &&
+        txnInfo?.transaction["confirmed-round"] > 0
       ) {
         //Got the completed Transaction
-        confirmedTxInfo = pendingInfo;
+        confirmedTxInfo = txnInfo.transaction;
       }
     }
     if (!confirmedTxInfo) {
       throw new Error("Transaction not found or not confirmed");
     }
+    if (!confirmedTxInfo["inner-txns"]) {
+      throw new Error("Source Tx does not refer to a valid bridge transaction");
+    }
+    // transform the object to match the format expected by parseSequenceFromLogAlgorand
+    confirmedTxInfo["inner-txns"] = confirmedTxInfo["inner-txns"].map(
+      (innerTxn: any) => {
+        return {
+          ...innerTxn,
+          logs: innerTxn["logs"]?.[0]
+            ? [Buffer.from(innerTxn["logs"][0], "base64")]
+            : undefined,
+        };
+      }
+    );
     const sequence = parseSequenceFromLogAlgorand(confirmedTxInfo);
     if (!sequence) {
       throw new Error("Sequence not found");
@@ -376,6 +416,26 @@ async function sui(digest: string, enqueueSnackbar: any) {
   }
 }
 
+async function sei(hash: string, enqueueSnackbar: any) {
+  try {
+    const client = await getSeiWasmClient();
+    const tx = await client.getTx(hash);
+    if (!tx) throw new Error("Unable to fetch transaction");
+
+    const parsedLogs = parseRawLog(tx.rawLog);
+    const sequence = searchInLogs("message.sequence", parsedLogs);
+    const emitterAddress = searchInLogs("message.sender", parsedLogs);
+
+    if (!sequence || !emitterAddress) {
+      throw new Error("Sequence or emitter address not found");
+    }
+
+    return await fetchSignedVAA(CHAIN_ID_SEI, emitterAddress, sequence);
+  } catch (e) {
+    return handleError(e, enqueueSnackbar);
+  }
+}
+
 function RelayerRecovery({
   parsedPayload,
   signedVaa,
@@ -390,8 +450,6 @@ function RelayerRecovery({
   const [selectedRelayer, setSelectedRelayer] = useState<Relayer | null>(null);
   const [isAttemptingToSchedule, setIsAttemptingToSchedule] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
-
-  console.log(parsedPayload, relayerInfo, "in recovery relayer");
 
   const fee =
     (parsedPayload && parsedPayload.fee && parseInt(parsedPayload.fee)) || null;
@@ -410,7 +468,6 @@ function RelayerRecovery({
   );
 
   const handleGo = useCallback(async () => {
-    console.log("handle go", selectedRelayer, parsedPayload);
     if (!(selectedRelayer && selectedRelayer.url)) {
       return;
     }
@@ -440,7 +497,7 @@ function RelayerRecovery({
           });
         }
       );
-  }, [selectedRelayer, enqueueSnackbar, onClick, signedVaa, parsedPayload]);
+  }, [selectedRelayer, enqueueSnackbar, onClick, signedVaa]);
 
   if (!isEligible) {
     return null;
@@ -517,14 +574,16 @@ export default function Recovery() {
   const dispatch = useDispatch();
   const [recoverySourceChain, setRecoverySourceChain] =
     useState<ChainId>(CHAIN_ID_SOLANA);
-  const { provider } = useEthereumProvider(recoverySourceChain);
+  const { provider } = useEthereumProvider(recoverySourceChain as any);
   const [type, setType] = useState<"Token" | "NFT">("Token");
-  const isNFT = type === "NFT";
+  const isNFT = useMemo(() => type === "NFT", [type]);
   const [recoverySourceTx, setRecoverySourceTx] = useState("");
   const [recoverySourceTxIsLoading, setRecoverySourceTxIsLoading] =
     useState(false);
   const [recoverySourceTxError, setRecoverySourceTxError] = useState("");
   const [recoverySignedVAA, setRecoverySignedVAA] = useState("");
+  const { isNFTTransfer, isTokenBridgeTransfer } =
+    useVaaVerifier(recoverySignedVAA);
   const [recoveryParsedVAA, setRecoveryParsedVAA] = useState<ParsedVaa | null>(
     null
   );
@@ -554,7 +613,6 @@ export default function Recovery() {
       return null;
     }
   }, [recoveryParsedVAA, isNFT]);
-  console.log("parsedPayload", parsedPayload);
 
   useEffect(() => {
     let cancelled = false;
@@ -587,7 +645,7 @@ export default function Recovery() {
         const tokenBridgeAddress =
           getTokenBridgeAddressForChain(CHAIN_ID_INJECTIVE);
         const tokenId = await queryExternalIdInjective(
-          client,
+          client as any,
           tokenBridgeAddress,
           parsedPayload.originAddress
         );
@@ -616,30 +674,22 @@ export default function Recovery() {
   }, [parsedPayload]);
 
   const { search } = useLocation();
-  const query = useMemo(() => new URLSearchParams(search), [search]);
-  const pathSourceChain = query.get("sourceChain");
-  const pathSourceTransaction = query.get("transactionId");
-
+  const { sourceChain, transactionId, vaaHex } =
+    useDeepLinkRecoveryParams(search);
   //This effect initializes the state based on the path params.
   useEffect(() => {
-    if (!pathSourceChain && !pathSourceTransaction) {
-      return;
-    }
     try {
-      const sourceChain: ChainId =
-        CHAINS_BY_ID[parseFloat(pathSourceChain || "") as ChainId]?.id;
-
-      if (sourceChain) {
+      if (sourceChain && transactionId) {
         setRecoverySourceChain(sourceChain);
-      }
-      if (pathSourceTransaction) {
-        setRecoverySourceTx(pathSourceTransaction);
+        setRecoverySourceTx(transactionId);
+      } else if (vaaHex) {
+        setRecoverySignedVAA(vaaHex);
       }
     } catch (e) {
       console.error(e);
       console.error("Invalid path params specified.");
     }
-  }, [pathSourceChain, pathSourceTransaction]);
+  }, [sourceChain, transactionId, vaaHex]);
 
   useEffect(() => {
     if (recoverySourceTx && (!isEVMChain(recoverySourceChain) || isReady)) {
@@ -825,6 +875,26 @@ export default function Recovery() {
             setIsVAAPending(isPending);
           }
         })();
+      } else if (recoverySourceChain === CHAIN_ID_SEI) {
+        setRecoverySourceTxError("");
+        setRecoverySourceTxIsLoading(true);
+        setTokenId("");
+        (async () => {
+          const { vaa, isPending, error } = await sei(
+            recoverySourceTx,
+            enqueueSnackbar
+          );
+          if (!cancelled) {
+            setRecoverySourceTxIsLoading(false);
+            if (vaa) {
+              setRecoverySignedVAA(vaa);
+            }
+            if (error) {
+              setRecoverySourceTxError(error);
+            }
+            setIsVAAPending(isPending);
+          }
+        })();
       }
       return () => {
         cancelled = true;
@@ -864,13 +934,14 @@ export default function Recovery() {
         const parsedVAA = parseVaa(hexToUint8Array(recoverySignedVAA));
         setRecoveryParsedVAA(parsedVAA);
       } catch (e) {
-        console.log(e);
+        console.error(e);
         setRecoveryParsedVAA(null);
       }
     }
   }, [recoverySignedVAA]);
   const parsedPayloadTargetChain = parsedPayload?.targetChain;
   const enableRecovery = recoverySignedVAA && parsedPayloadTargetChain;
+  //&& (isNFTTransfer || isTokenBridgeTransfer);
 
   const handleRecoverClickBase = useCallback(
     (useRelayer: boolean) => {
@@ -979,17 +1050,27 @@ export default function Recovery() {
           fullWidth
           margin="normal"
         />
-        <RelayerRecovery
-          parsedPayload={parsedPayload}
-          signedVaa={recoverySignedVAA}
-          onClick={handleRecoverWithRelayerClick}
-        />
-        <AcalaRelayerRecovery
-          parsedPayload={parsedPayload}
-          signedVaa={recoverySignedVAA}
-          onClick={handleRecoverWithRelayerClick}
-          isNFT={isNFT}
-        />
+        {enableRecovery && (
+          <>
+            <RelayerRecovery
+              parsedPayload={parsedPayload}
+              signedVaa={recoverySignedVAA}
+              onClick={handleRecoverWithRelayerClick}
+            />
+            <AcalaRelayerRecovery
+              parsedPayload={parsedPayload}
+              signedVaa={recoverySignedVAA}
+              onClick={handleRecoverWithRelayerClick}
+              isNFT={isNFT}
+            />
+          </>
+        )}
+        {recoverySignedVAA !== "" &&
+          !(isNFTTransfer || isTokenBridgeTransfer) && (
+            <ChainWarningMessage>
+              {NOT_SUPPORTED_VAA_WARNING_MESSAGE}
+            </ChainWarningMessage>
+          )}
         <ButtonWithLoader
           onClick={handleRecoverClick}
           disabled={!enableRecovery}
@@ -1001,7 +1082,7 @@ export default function Recovery() {
           <PendingVAAWarning sourceChain={recoverySourceChain} />
         )}
         <div className={classes.advancedContainer}>
-          <Accordion>
+          <Accordion defaultExpanded={!!vaaHex}>
             <AccordionSummary expandIcon={<ExpandMore />}>
               Advanced
             </AccordionSummary>

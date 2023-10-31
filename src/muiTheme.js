@@ -16,6 +16,7 @@ export const COLORS = {
   darkRed: "#810612",
   white: "#FFFFFF",
   whiteWithTransparency: "rgba(255,255,255,.07)",
+  orange: "#F0932A",
 };
 
 const suisse = {
@@ -49,6 +50,9 @@ export const theme = responsiveFontSizes(
       error: {
         main: COLORS.red,
       },
+      warning: {
+        main: COLORS.orange,
+      },
     },
 
     typography: {
@@ -68,6 +72,9 @@ export const theme = responsiveFontSizes(
         fontFamily: "Suisse BP Intl, sans-serif",
         letterSpacing: -1.02,
       },
+    },
+    zIndex: {
+      modal: 50,
     },
     overrides: {
       MuiCssBaseline: {
